@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voucher Bot Generator</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; text-align: center; background: #f0f2f5; }
+    .card {
+      border: 1px solid #ccc;
+      padding: 30px;
+      border-radius: 10px;
+      background: white;
+      max-width: 480px;
+      margin: auto;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .label { font-size: 1rem; color: #555; margin-top: 10px; }
+    .code { font-size: 1.6em; margin: 8px 0; color: #222; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Your Promo Voucher</h2>
+    <div class="label">📱 Malaysian Phone Number:</div>
+    <div class="code" id="phone">Generating...</div>
+    <div class="label">🔐 6‑Digit TAC Code:</div>
+    <div class="code" id="tac">Generating...</div>
+    <p>✅ Use this code as part of your promo redemption. Refresh for a new one!</p>
+  </div>
+
+  <script>
+    function genPhone() {
+      const pre = ["010","011","012","013","014","016","017","018","019"];
+      const p = pre[Math.floor(Math.random() * pre.length)];
+      const len = (p === "011") ? 8 : 7;
+      const num = Math.floor(Math.pow(10,len-1) + Math.random() * (Math.pow(10,len) - Math.pow(10,len-1)));
+      return `${p}-${num}`;
+    }
+    function genTAC() { return Math.floor(100000 + Math.random() * 900000); }
+
+    document.getElementById("phone").textContent = genPhone();
+    document.getElementById("tac").textContent = genTAC();
+  </script>
+</body>
+</html>
