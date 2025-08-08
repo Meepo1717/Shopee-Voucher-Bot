@@ -1,45 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Voucher Bot Generator</title>
-  <style>
-    body { font-family: sans-serif; padding: 40px; text-align: center; background: #f0f2f5; }
-    .card {
-      border: 1px solid #ccc;
-      padding: 30px;
-      border-radius: 10px;
-      background: white;
-      max-width: 480px;
-      margin: auto;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redeem Your Shopee Order</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #fef6f4;
+        margin: 0;
+        padding: 0;
     }
-    .label { font-size: 1rem; color: #555; margin-top: 10px; }
-    .code { font-size: 1.6em; margin: 8px 0; color: #222; font-weight: bold; }
-  </style>
+
+    header {
+        text-align: center;
+        padding: 20px;
+        background-color: #ee4d2d;
+        color: white;
+    }
+
+    header img {
+        width: 60px;
+        display: block;
+        margin: 0 auto 10px;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+        margin-bottom: 5px;
+    }
+
+    p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #fff5f2;
+    }
+
+    .container {
+        max-width: 450px;
+        background: white;
+        margin: 30px auto;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .lang-toggle {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+    }
+
+    .lang-toggle button {
+        border: none;
+        background: #f3f3f3;
+        padding: 6px 12px;
+        margin-left: 5px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        font-size: 1rem;
+    }
+
+    .redeem-btn {
+        background-color: #ee4d2d;
+        color: white;
+        padding: 12px;
+        width: 100%;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        cursor: pointer;
+    }
+
+    .redeem-btn:hover {
+        background-color: #d8431c;
+    }
+
+    .instructions {
+        margin-top: 20px;
+        font-size: 0.9rem;
+    }
+
+    .instructions h3 {
+        margin-bottom: 8px;
+        font-size: 1rem;
+        color: #333;
+    }
+
+    .instructions ol {
+        padding-left: 20px;
+        margin: 0;
+    }
+
+    .instructions li {
+        margin-bottom: 5px;
+    }
+
+    .terms {
+        margin-top: 20px;
+        font-size: 0.9rem;
+    }
+
+    .terms h3 {
+        margin-bottom: 8px;
+        font-size: 1rem;
+        color: #333;
+    }
+
+    .terms ul {
+        padding-left: 20px;
+    }
+
+    .purchase-btn {
+        background-color: #ff7043;
+        color: white;
+        padding: 10px;
+        border: none;
+        border-radius: 6px;
+        width: 100%;
+        font-size: 1rem;
+        cursor: pointer;
+        margin-top: 15px;
+    }
+
+    .purchase-btn:hover {
+        background-color: #f4511e;
+    }
+</style>
 </head>
 <body>
-  <div class="card">
-    <h2>Your Promo Voucher</h2>
-    <div class="label">📱 Malaysian Phone Number:</div>
-    <div class="code" id="phone">Generating...</div>
-    <div class="label">🔐 6‑Digit TAC Code:</div>
-    <div class="code" id="tac">Generating...</div>
-    <p>✅ Use this code as part of your promo redemption. Refresh for a new one!</p>
-  </div>
 
-  <script>
-    function genPhone() {
-      const pre = ["010","011","012","013","014","016","017","018","019"];
-      const p = pre[Math.floor(Math.random() * pre.length)];
-      const len = (p === "011") ? 8 : 7;
-      const num = Math.floor(Math.pow(10,len-1) + Math.random() * (Math.pow(10,len) - Math.pow(10,len-1)));
-      return `${p}-${num}`;
-    }
-    function genTAC() { return Math.floor(100000 + Math.random() * 900000); }
+<header>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/1/1f/Shopee_logo.svg" alt="Logo">
+    <h1>Redeem Your Shopee Order</h1>
+    <p>Paste your Shopee Order ID below to begin redemption</p>
+</header>
 
-    document.getElementById("phone").textContent = genPhone();
-    document.getElementById("tac").textContent = genTAC();
-  </script>
+<div class="container">
+    <div class="lang-toggle">
+        <button>ENG</button>
+        <button>BM</button>
+    </div>
+
+    <h2>🔍 Order ID Verification</h2>
+    <input type="text" placeholder="Enter your Shopee Order ID">
+    <button class="redeem-btn">🚀 Proceed to Redeem</button>
+
+    <div class="instructions">
+        <h3>📋 How to Find Your Order ID</h3>
+        <ol>
+            <li>Open the Shopee app & go to My Purchases.</li>
+            <li>Tap the order and scroll to find the Order ID.</li>
+            <li>Copy the full Order ID (e.g., 230605TYUQG5Y6).</li>
+            <li>Paste it above and submit.</li>
+        </ol>
+    </div>
+
+    <div class="terms">
+        <h3>⭐ Terms of Redemption</h3>
+        <ul>
+            <li>✅ One-time redemption per Order ID.</li>
+            <li>📦 Quantity of numbers matched with product count.</li>
+            <li>⏳ Use within 15 minutes or it may expire.</li>
+            <li>❌ Orders marked “To Receive” cannot be canceled.</li>
+        </ul>
+    </div>
+
+    <button class="purchase-btn">🛒 Purchase New Voucher</button>
+</div>
+
 </body>
 </html>
