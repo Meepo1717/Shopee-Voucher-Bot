@@ -13,12 +13,13 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
       color: #333;
     }
 
     .container {
-      width: 400px;
+      width: 90%;
+      max-width: 400px;
       padding: 20px;
       border-radius: 16px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
@@ -27,8 +28,9 @@
     }
 
     h1 {
-      color: #ff5722; /* Shopee orange */
+      color: #ff5722;
       margin-bottom: 20px;
+      font-size: 1.5rem;
     }
 
     .input-group {
@@ -39,7 +41,7 @@
 
     input[type="text"] {
       flex: 1;
-      padding: 10px;
+      padding: 12px;
       border: 1px solid #ccc;
       border-radius: 8px;
       font-size: 14px;
@@ -47,18 +49,35 @@
 
     button.copy-btn {
       margin-left: 8px;
-      padding: 10px 14px;
+      padding: 12px 14px;
       border: none;
       border-radius: 8px;
       background-color: #ff5722;
       color: #fff;
       font-size: 14px;
       cursor: pointer;
-      transition: background 0.2s ease;
+      transition: background 0.2s ease, opacity 0.2s ease;
+      flex-shrink: 0;
     }
 
     button.copy-btn:hover {
       background-color: #e64a19;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.2rem;
+      }
+      .input-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      button.copy-btn {
+        margin-left: 0;
+        margin-top: 8px;
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -69,23 +88,31 @@
     <!-- Phone Number -->
     <div class="input-group">
       <input type="text" id="phoneNumber" placeholder="Phone Number" value="+60123456789" readonly>
-      <button class="copy-btn" onclick="copyToClipboard('phoneNumber')">Copy</button>
+      <button class="copy-btn" onclick="copyToClipboard('phoneNumber', this)">Copy</button>
     </div>
 
     <!-- OTP -->
     <div class="input-group">
       <input type="text" id="otpCode" placeholder="OTP Code" value="123456" readonly>
-      <button class="copy-btn" onclick="copyToClipboard('otpCode')">Copy</button>
+      <button class="copy-btn" onclick="copyToClipboard('otpCode', this)">Copy</button>
     </div>
   </div>
 
   <script>
-    function copyToClipboard(elementId) {
+    function copyToClipboard(elementId, btn) {
       const copyText = document.getElementById(elementId);
       copyText.select();
       copyText.setSelectionRange(0, 99999); // For mobile
       navigator.clipboard.writeText(copyText.value)
-        .then(() => alert("Copied: " + copyText.value))
+        .then(() => {
+          let originalText = btn.innerText;
+          btn.innerText = "Copied!";
+          btn.style.opacity = "0.8";
+          setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.opacity = "1";
+          }, 1500);
+        })
         .catch(err => console.error("Error copying text: ", err));
     }
   </script>
