@@ -3,57 +3,91 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voucher Redemption</title>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans&display=swap" rel="stylesheet">
+  <title>Redeem your vouchers</title>
   <style>
     body {
       font-family: 'Google Sans', sans-serif;
       background-color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: #333;
+    }
+
+    .container {
+      width: 400px;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      background: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      color: #ff5722; /* Shopee orange */
+      margin-bottom: 20px;
+    }
+
+    .input-group {
       display: flex;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
+      margin-bottom: 15px;
     }
-    .container {
-      background: #fff;
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      text-align: center;
-      width: 100%;
-      max-width: 400px;
-    }
-    h1 { color: #ff5722; }
-    input {
-      width: 100%;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 8px;
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
       border: 1px solid #ccc;
-      font-size: 16px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    button.copy-btn {
+      margin-left: 8px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background-color: #ff5722;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    button.copy-btn:hover {
+      background-color: #e64a19;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1 id="title">Voucher Redemption</h1>
-    <p><b>Order ID:</b> <span id="orderId"></span></p>
-    <input type="text" id="phoneBox" value="Waiting for number..." readonly>
-    <input type="text" id="otpBox" value="Waiting for OTP..." readonly>
+    <h1>Redeem your vouchers</h1>
+
+    <!-- Phone Number -->
+    <div class="input-group">
+      <input type="text" id="phoneNumber" placeholder="Phone Number" value="+60123456789" readonly>
+      <button class="copy-btn" onclick="copyToClipboard('phoneNumber')">Copy</button>
+    </div>
+
+    <!-- OTP -->
+    <div class="input-group">
+      <input type="text" id="otpCode" placeholder="OTP Code" value="123456" readonly>
+      <button class="copy-btn" onclick="copyToClipboard('otpCode')">Copy</button>
+    </div>
   </div>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    document.getElementById("orderId").innerText = params.get("order") || "N/A";
-
-    setTimeout(() => {
-      document.getElementById("phoneBox").value = "+60 123-456-789";
-    }, 2000);
-
-    setTimeout(() => {
-      document.getElementById("otpBox").value = "123456";
-    }, 5000);
+    function copyToClipboard(elementId) {
+      const copyText = document.getElementById(elementId);
+      copyText.select();
+      copyText.setSelectionRange(0, 99999); // For mobile
+      navigator.clipboard.writeText(copyText.value)
+        .then(() => alert("Copied: " + copyText.value))
+        .catch(err => console.error("Error copying text: ", err));
+    }
   </script>
 </body>
 </html>
