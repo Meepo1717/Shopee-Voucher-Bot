@@ -1,191 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Redeem your vouchers</title>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Google Sans', sans-serif;
-      background-color: #fff;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      color: #333;
-    }
-
-    header {
-      width: 100%;
-      background-color: #ff5722; /* Shopee orange */
-      color: white;
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-sizing: border-box;
-    }
-
-    header img {
-      height: 40px;
-    }
-
-    .lang-switch {
-      display: flex;
-      gap: 8px;
-    }
-
-    .lang-switch button {
-      padding: 8px 14px;
-      background: white;
-      color: #ff5722;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: 0.2s;
-    }
-
-    .lang-switch button:hover {
-      background: #ffe6e0;
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      max-width: 500px;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
-    h1 {
-      color: #ff5722;
-      font-size: 1.6rem;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .form-container {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    button.redeem {
-      width: 100%;
-      padding: 12px;
-      background-color: #ff5722;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-      font-weight: bold;
-      transition: 0.2s;
-    }
-
-    button.redeem:hover {
-      background-color: #e64a19;
-    }
-
-    .purchase-btn {
-      margin-top: 16px;
-      text-align: center;
-    }
-
-    .purchase-btn a {
-      display: inline-block;
-      background-color: #ff5722;
-      color: white;
-      padding: 10px 16px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: bold;
-      transition: 0.2s;
-    }
-
-    .purchase-btn a:hover {
-      background-color: #e64a19;
-    }
-
-    @media (max-width: 480px) {
-      h1 {
-        font-size: 1.3rem;
-      }
-      input[type="text"], button.redeem {
-        font-size: 0.95rem;
-        padding: 10px;
-      }
-      .lang-switch button {
-        padding: 6px 10px;
-        font-size: 0.85rem;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HavicBot Voucher Redemption</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .spinner {
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border-left-color: #fff;
+            animation: spin 1s ease infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body>
-  <header>
-    <img src="logo.png" alt="Logo">
-    <div class="lang-switch">
-      <button onclick="setLanguage('en')">EN</button>
-      <button onclick="setLanguage('bm')">BM</button>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="absolute top-4 right-4">
+        <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+            Bahasa Melayu
+        </button>
     </div>
-  </header>
 
-  <main>
-    <h1 id="title">Redeem your vouchers</h1>
-    <div class="form-container">
-      <input type="text" id="orderId" placeholder="Enter Shopee Order ID" />
-      <button class="redeem" onclick="redeemVoucher()">Proceed to Redeem</button>
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2" data-translate="title">Voucher Redemption</h1>
+            <p class="text-gray-500 mb-6" data-translate="subtitle">Enter your Order ID to begin.</p>
+        </div>
+
+        <form id="verifyForm">
+            <div class="mb-4">
+                <label for="shopeeId" class="block mb-2 text-sm font-medium text-gray-700" data-translate="shopee_id_label">Shopee Order ID</label>
+                <input type="text" id="shopeeId" name="shopeeId" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-3" data-translate-placeholder="shopee_id_placeholder" placeholder="e.g., 230605TYUQG5Y6" required>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 mb-6">
+                <h3 class="font-semibold text-gray-800 mb-2" data-translate="instructions_title">How to Find Your Order ID</h3>
+                <ol class="list-decimal list-inside space-y-1">
+                    <li data-translate="instructions_step1">Open the Shopee app & go to <strong>My Purchases</strong>.</li>
+                    <li data-translate="instructions_step2">Tap the order and scroll to find the <strong>Order ID</strong>.</li>
+                    <li data-translate="instructions_step3">Copy the full Order ID (e.g., 230605TYUQG5Y6).</li>
+                    <li data-translate="instructions_step4">Paste it above and submit.</li>
+                </ol>
+            </div>
+
+            <button type="submit" id="submitButton" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="verify_button">
+                Verify Order ID
+            </button>
+        </form>
+
+        <div id="responseMessage" class="mt-6 text-center text-sm font-medium p-4 rounded-lg hidden"></div>
+
+        <hr class="my-6 border-gray-200">
+
+        <div class="text-center">
+             <a href="https://shopee.com.my/havicbot?entryPoint=ShopBySearch&searchKeyword=havic" target="_blank" id="purchaseButton" class="inline-block text-white bg-[#EE4D2D] hover:bg-[#d73410] font-medium rounded-lg text-sm w-full px-5 py-3 text-center transition-all duration-200" data-translate="purchase_button">
+                Purchase New Voucher
+            </a>
+        </div>
     </div>
-    <div class="purchase-btn">
-      <a href="https://shopee.com.my/shop/111783206" target="_blank">Purchase New Voucher</a>
-    </div>
-  </main>
 
-  <script>
-    const translations = {
-      en: {
-        title: "Redeem your vouchers",
-        placeholder: "Enter Shopee Order ID",
-        redeem: "Proceed to Redeem",
-        purchase: "Purchase New Voucher"
-      },
-      bm: {
-        title: "Tebus baucar anda",
-        placeholder: "Masukkan ID Pesanan Shopee",
-        redeem: "Teruskan untuk Tebus",
-        purchase: "Beli Baucar Baru"
-      }
-    };
+    <script>
+        const verifyForm = document.getElementById('verifyForm');
+        const responseMessage = document.getElementById('responseMessage');
+        const langSwitcher = document.getElementById('lang-switcher');
 
-    function setLanguage(lang) {
-      document.getElementById("title").innerText = translations[lang].title;
-      document.getElementById("orderId").placeholder = translations[lang].placeholder;
-      document.querySelector(".redeem").innerText = translations[lang].redeem;
-      document.querySelector(".purchase-btn a").innerText = translations[lang].purchase;
-    }
+        // --- Language Translation Setup ---
+        const translations = {
+            en: {
+                title: 'Voucher Redemption',
+                subtitle: 'Enter your Order ID to begin.',
+                shopee_id_label: 'Shopee Order ID',
+                shopee_id_placeholder: 'e.g., 230605TYUQG5Y6',
+                instructions_title: 'How to Find Your Order ID',
+                instructions_step1: 'Open the Shopee app & go to <strong>My Purchases</strong>.',
+                instructions_step2: 'Tap the order and scroll to find the <strong>Order ID</strong>.',
+                instructions_step3: 'Copy the full Order ID (e.g., 230605TYUQG5Y6).',
+                instructions_step4: 'Paste it above and submit.',
+                verify_button: 'Verify Order ID',
+                purchase_button: 'Purchase New Voucher',
+                lang_switcher_text: 'Bahasa Melayu'
+            },
+            ms: {
+                title: 'Penebusan Baucar',
+                subtitle: 'Masukkan ID Pesanan anda untuk bermula.',
+                shopee_id_label: 'ID Pesanan Shopee',
+                shopee_id_placeholder: 'cth., 230605TYUQG5Y6',
+                instructions_title: 'Cara Mencari ID Pesanan Anda',
+                instructions_step1: 'Buka aplikasi Shopee & pergi ke <strong>Belian Saya</strong>.',
+                instructions_step2: 'Ketik pada pesanan dan skrol untuk mencari <strong>ID Pesanan</strong>.',
+                instructions_step3: 'Salin ID Pesanan penuh (cth., 230605TYUQG5Y6).',
+                instructions_step4: 'Tampal di atas dan hantar.',
+                verify_button: 'Sahkan ID Pesanan',
+                purchase_button: 'Beli Baucar Baru',
+                lang_switcher_text: 'English'
+            }
+        };
 
-    function redeemVoucher() {
-      window.location.href = "redeem.html";
-    }
-  </script>
+        let currentLang = 'en';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                el.innerHTML = translations[lang][key]; // Use innerHTML for <strong> tags
+            });
+
+            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-translate-placeholder');
+                el.placeholder = translations[lang][key];
+            });
+
+            langSwitcher.textContent = translations[lang].lang_switcher_text;
+        }
+
+        langSwitcher.addEventListener('click', () => {
+            const newLang = currentLang === 'en' ? 'ms' : 'en';
+            setLanguage(newLang);
+        });
+
+        // --- Form Submission Logic ---
+        verifyForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const shopeeId = document.getElementById('shopeeId').value;
+
+            if (shopeeId) {
+                // This is the corrected code to build a full URL for redirection
+                const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
+                window.location.href = absoluteUrl.href;
+            } else {
+                responseMessage.textContent = 'Please enter a valid Shopee Order ID.';
+                responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
+                responseMessage.classList.remove('hidden');
+            }
+        });
+
+        // Initialize with default language
+        setLanguage('en');
+    </script>
+
 </body>
 </html>
