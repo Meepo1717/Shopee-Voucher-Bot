@@ -54,9 +54,15 @@
         </p>
 
         <div id="error-message" class="mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800 hidden"></div>
+        
+        <div class="mt-4">
+            <button id="back-btn" class="text-sm text-gray-600 hover:text-gray-800 hover:underline" data-translate="back_button">
+                &larr; Go Back
+            </button>
+        </div>
     </div>
 
-    <!-- NEW: Success Modal/Popup -->
+    <!-- Success Modal/Popup -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
@@ -85,9 +91,9 @@
         const copyPhoneBtn = document.getElementById('copy-phone-btn');
         const copyOtpBtn = document.getElementById('copy-otp-btn');
         const orderIdBox = document.getElementById('order-id-box');
-        // NEW: Get modal elements
         const successModal = document.getElementById('success-modal');
         const modalCloseBtn = document.getElementById('modal-close-btn');
+        const backBtn = document.getElementById('back-btn');
 
         // --- Language Translation Setup ---
         const translations = {
@@ -105,10 +111,10 @@
                 lang_switcher_text: 'Bahasa Melayu',
                 copy_button_title: 'Copy to clipboard',
                 copied_message: 'Copied!',
-                // NEW: Modal translations
                 modal_title: 'Fully Redeemed!',
                 modal_message: 'You have successfully claimed your voucher. You can now close this page.',
-                modal_button: 'Return to Home'
+                modal_button: 'Return to Home',
+                back_button: '&larr; Go Back'
             },
             ms: {
                 title: 'Penebusan Baucar',
@@ -124,10 +130,10 @@
                 lang_switcher_text: 'English',
                 copy_button_title: 'Salin ke papan keratan',
                 copied_message: 'Disalin!',
-                // NEW: Modal translations
                 modal_title: 'Berjaya Ditebus!',
                 modal_message: 'Anda telah berjaya menebus baucar anda. Anda boleh menutup halaman ini sekarang.',
-                modal_button: 'Kembali ke Laman Utama'
+                modal_button: 'Kembali ke Laman Utama',
+                back_button: '&larr; Kembali'
             }
         };
         
@@ -155,9 +161,11 @@
             setLanguage(newLang);
         });
 
-        // NEW: Event listener for the modal close button
         modalCloseBtn.addEventListener('click', () => {
-            // Redirects to the first page
+            window.location.href = './index.html';
+        });
+
+        backBtn.addEventListener('click', () => {
             window.location.href = './index.html';
         });
 
@@ -242,6 +250,7 @@
 
         async function checkForOtp(fiveSimOrderId) {
             let lastOtp = null;
+            const orderId = getQueryParam('orderId');
 
             const interval = setInterval(async () => {
                 try {
@@ -260,8 +269,14 @@
                         statusText.textContent = T('status_success');
                         statusText.className = 'text-green-600 font-bold mb-6';
                         
-                        // NEW: Show the success popup
                         successModal.classList.remove('hidden');
+
+                        // ** NEW FINAL STEP: Confirm the redemption with the backend **
+                        await fetch(`${backendUrl}/confirm-redemption`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ shopeeId: orderId })
+                        });
                     }
 
                 } catch (error) {
