@@ -1,3 +1,6 @@
+Of course. Here is the complete code for the `otp.html` page, including the copy-to-clipboard buttons.
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,13 +26,23 @@
         <!-- Phone Number Display -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
-            <div id="phone-number-box" class="mt-1 text-lg font-semibold bg-gray-100 p-3 rounded-lg text-gray-800">- - -</div>
+            <div class="flex items-center gap-2 mt-1">
+                <div id="phone-number-box" class="flex-grow text-lg font-semibold bg-gray-100 p-3 rounded-lg text-gray-800">- - -</div>
+                <button id="copy-phone-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+            </div>
         </div>
 
         <!-- OTP Display -->
         <div class="mb-2">
             <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
-            <div id="otp-box" class="mt-1 text-2xl font-bold tracking-widest bg-gray-100 p-4 rounded-lg text-blue-600">- - -</div>
+            <div class="flex items-center gap-2 mt-1">
+                <div id="otp-box" class="flex-grow text-2xl font-bold tracking-widest bg-gray-100 p-4 rounded-lg text-blue-600">- - -</div>
+                <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+            </div>
         </div>
 
         <!-- Instructions for waiting -->
@@ -46,6 +59,8 @@
         const otpBox = document.getElementById('otp-box');
         const errorMessage = document.getElementById('error-message');
         const langSwitcher = document.getElementById('lang-switcher');
+        const copyPhoneBtn = document.getElementById('copy-phone-btn');
+        const copyOtpBtn = document.getElementById('copy-otp-btn');
 
         // --- Language Translation Setup ---
         const translations = {
@@ -58,7 +73,9 @@
                 phone_label: 'Generated Phone Number',
                 otp_label: 'Verification Code (OTP)',
                 otp_instructions: 'Your code is being generated. Please stay on this page to ensure delivery. This usually takes 2-10 minutes.',
-                lang_switcher_text: 'Bahasa Melayu'
+                lang_switcher_text: 'Bahasa Melayu',
+                copy_button_title: 'Copy to clipboard',
+                copied_message: 'Copied!'
             },
             ms: {
                 title: 'Penebusan Anda',
@@ -69,11 +86,13 @@
                 phone_label: 'Nombor Telefon Dijana',
                 otp_label: 'Kod Pengesahan (OTP)',
                 otp_instructions: 'Kod anda sedang dijana. Sila kekal di halaman ini untuk memastikan penghantaran. Proses ini biasanya mengambil masa 2-10 minit.',
-                lang_switcher_text: 'English'
+                lang_switcher_text: 'English',
+                copy_button_title: 'Salin ke papan keratan',
+                copied_message: 'Disalin!'
             }
         };
         
-        let currentLang = 'en'; // Default
+        let currentLang = 'en';
 
         function setLanguage(lang) {
             currentLang = lang;
@@ -81,9 +100,12 @@
 
             document.querySelectorAll('[data-translate]').forEach(el => {
                 const key = el.getAttribute('data-translate');
-                if (translations[lang][key]) {
-                    el.innerHTML = translations[lang][key];
-                }
+                if (translations[lang][key]) el.innerHTML = translations[lang][key];
+            });
+            
+            document.querySelectorAll('[data-translate-title]').forEach(el => {
+                const key = el.getAttribute('data-translate-title');
+                if (translations[lang][key]) el.title = translations[lang][key];
             });
 
             langSwitcher.textContent = translations[lang].lang_switcher_text;
@@ -94,13 +116,46 @@
             setLanguage(newLang);
         });
 
-        // Helper function to get translated text
         function T(key) {
             return translations[currentLang][key] || key;
         }
 
-        // --- CONFIGURATION ---
-        const backendUrl = 'https://havicbot-backend.onrender.com'; // IMPORTANT: Use your backend URL
+        // --- Copy to Clipboard Function ---
+        function copyToClipboard(text, button) {
+            const originalContent = button.innerHTML;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                button.innerHTML = T('copied_message');
+                button.classList.add('text-green-600');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            document.body.removeChild(textarea);
+
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('text-green-600');
+            }, 1500);
+        }
+
+        copyPhoneBtn.addEventListener('click', () => {
+            if (phoneNumberBox.textContent !== '- - -') {
+                copyToClipboard(phoneNumberBox.textContent, copyPhoneBtn);
+            }
+        });
+
+        copyOtpBtn.addEventListener('click', () => {
+            if (otpBox.textContent !== '- - -') {
+                copyToClipboard(otpBox.textContent, copyOtpBtn);
+            }
+        });
+
+        // --- Main Application Logic ---
+        const backendUrl = 'https://havicbot-backend.onrender.com';
 
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
@@ -126,6 +181,7 @@
 
                 const { phoneNumber, fiveSimOrderId } = phoneResult;
                 phoneNumberBox.textContent = phoneNumber;
+                copyPhoneBtn.classList.remove('hidden'); // Show copy button
                 statusText.textContent = T('status_waiting');
 
                 checkForOtp(fiveSimOrderId);
@@ -150,6 +206,7 @@
 
                     if (otpResponse.ok && otpResult.otp) {
                         otpBox.textContent = otpResult.otp;
+                        copyOtpBtn.classList.remove('hidden'); // Show copy button
                         statusText.textContent = T('status_success');
                         clearInterval(interval);
                     }
@@ -160,7 +217,6 @@
             }, 5000);
         }
 
-        // Initialize the page with the default language and start the process
         window.onload = () => {
             setLanguage('en');
             startRedemptionProcess();
@@ -169,3 +225,4 @@
 
 </body>
 </html>
+```
