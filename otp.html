@@ -17,14 +17,20 @@
     </div>
 
     <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 text-center">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2" data-translate="title">Your Redemption</h1>
-        <p class="text-gray-500 mb-6" id="status-text" data-translate="status_requesting">Requesting a phone number for you...</p>
+        <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color: #EE4D2D;">Voucher Redemption</h1>
+        <p class="text-blue-600 mb-6" id="status-text" data-translate="status_requesting">Requesting a phone number for you...</p>
+
+        <!-- Order ID Display Box -->
+        <div class="mb-4 text-left">
+            <label class="block text-sm font-medium text-gray-700" data-translate="order_id_label">Your Order ID</label>
+            <div id="order-id-box" class="mt-1 text-lg font-semibold bg-gray-100 p-3 rounded-lg text-gray-800 text-center">&nbsp;</div>
+        </div>
 
         <!-- Phone Number Display -->
-        <div class="mb-4">
+        <div class="mb-4 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
             <div class="flex items-center gap-2 mt-1">
-                <div id="phone-number-box" class="flex-grow text-lg font-semibold bg-gray-100 p-3 rounded-lg text-gray-800">- - -</div>
+                <div id="phone-number-box" class="flex-grow text-lg font-semibold bg-gray-100 p-3 rounded-lg text-gray-800 text-center">&nbsp;</div>
                 <button id="copy-phone-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
@@ -32,10 +38,10 @@
         </div>
 
         <!-- OTP Display -->
-        <div class="mb-2">
+        <div class="mb-2 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
             <div class="flex items-center gap-2 mt-1">
-                <div id="otp-box" class="flex-grow text-2xl font-bold tracking-widest bg-gray-100 p-4 rounded-lg text-blue-600">- - -</div>
+                <div id="otp-box" class="flex-grow text-lg font-semibold bg-gray-100 p-3 rounded-lg text-blue-600 text-center">&nbsp;</div>
                 <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
@@ -50,6 +56,26 @@
         <div id="error-message" class="mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800 hidden"></div>
     </div>
 
+    <!-- NEW: Success Modal/Popup -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" data-translate="modal_title">Fully Redeemed!</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" data-translate="modal_message">You have successfully claimed your voucher. You can now close this page.</p>
+            </div>
+            <div class="mt-4">
+                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate="modal_button">
+                    Return to Home
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const statusText = document.getElementById('status-text');
         const phoneNumberBox = document.getElementById('phone-number-box');
@@ -58,34 +84,50 @@
         const langSwitcher = document.getElementById('lang-switcher');
         const copyPhoneBtn = document.getElementById('copy-phone-btn');
         const copyOtpBtn = document.getElementById('copy-otp-btn');
+        const orderIdBox = document.getElementById('order-id-box');
+        // NEW: Get modal elements
+        const successModal = document.getElementById('success-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
 
         // --- Language Translation Setup ---
         const translations = {
             en: {
-                title: 'Your Redemption',
+                title: 'Voucher Redemption',
                 status_requesting: 'Requesting a phone number for you...',
                 status_waiting: 'Waiting for SMS... This can take a minute.',
                 status_success: 'Success! Your OTP has arrived.',
                 status_failed: 'Redemption Failed',
+                status_expired: 'Timer expired. Please try again with a new Order ID.',
+                order_id_label: 'Your Order ID',
                 phone_label: 'Generated Phone Number',
                 otp_label: 'Verification Code (OTP)',
                 otp_instructions: 'Your code is being generated. Please stay on this page to ensure delivery. This usually takes 2-10 minutes.',
                 lang_switcher_text: 'Bahasa Melayu',
                 copy_button_title: 'Copy to clipboard',
-                copied_message: 'Copied!'
+                copied_message: 'Copied!',
+                // NEW: Modal translations
+                modal_title: 'Fully Redeemed!',
+                modal_message: 'You have successfully claimed your voucher. You can now close this page.',
+                modal_button: 'Return to Home'
             },
             ms: {
-                title: 'Penebusan Anda',
+                title: 'Penebusan Baucar',
                 status_requesting: 'Memohon nombor telefon untuk anda...',
                 status_waiting: 'Menunggu SMS... Ini mungkin mengambil masa seminit.',
                 status_success: 'Berjaya! OTP anda telah tiba.',
                 status_failed: 'Penebusan Gagal',
+                status_expired: 'Masa tamat. Sila cuba lagi dengan ID Pesanan yang baru.',
+                order_id_label: 'ID Pesanan Anda',
                 phone_label: 'Nombor Telefon Dijana',
                 otp_label: 'Kod Pengesahan (OTP)',
                 otp_instructions: 'Kod anda sedang dijana. Sila kekal di halaman ini untuk memastikan penghantaran. Proses ini biasanya mengambil masa 2-10 minit.',
                 lang_switcher_text: 'English',
                 copy_button_title: 'Salin ke papan keratan',
-                copied_message: 'Disalin!'
+                copied_message: 'Disalin!',
+                // NEW: Modal translations
+                modal_title: 'Berjaya Ditebus!',
+                modal_message: 'Anda telah berjaya menebus baucar anda. Anda boleh menutup halaman ini sekarang.',
+                modal_button: 'Kembali ke Laman Utama'
             }
         };
         
@@ -113,11 +155,16 @@
             setLanguage(newLang);
         });
 
+        // NEW: Event listener for the modal close button
+        modalCloseBtn.addEventListener('click', () => {
+            // Redirects to the first page
+            window.location.href = './index.html';
+        });
+
         function T(key) {
             return translations[currentLang][key] || key;
         }
 
-        // --- Copy to Clipboard Function ---
         function copyToClipboard(text, button) {
             const originalContent = button.innerHTML;
             const textarea = document.createElement('textarea');
@@ -140,18 +187,16 @@
         }
 
         copyPhoneBtn.addEventListener('click', () => {
-            if (phoneNumberBox.textContent !== '- - -') {
+             if (phoneNumberBox.textContent.trim() !== '') {
                 copyToClipboard(phoneNumberBox.textContent, copyPhoneBtn);
             }
         });
-
         copyOtpBtn.addEventListener('click', () => {
-            if (otpBox.textContent !== '- - -') {
+            if (otpBox.textContent.trim() !== '') {
                 copyToClipboard(otpBox.textContent, copyOtpBtn);
             }
-        });
+         });
 
-        // --- Main Application Logic ---
         const backendUrl = 'https://havicbot-backend.onrender.com';
 
         function getQueryParam(param) {
@@ -166,6 +211,9 @@
                 return;
             }
 
+            orderIdBox.textContent = orderId;
+            orderIdBox.classList.add('text-center');
+
             try {
                 const phoneResponse = await fetch(`${backendUrl}/get-phone`, {
                     method: 'POST',
@@ -178,8 +226,9 @@
 
                 const { phoneNumber, fiveSimOrderId } = phoneResult;
                 phoneNumberBox.textContent = phoneNumber;
-                copyPhoneBtn.classList.remove('hidden'); // Show copy button
+                copyPhoneBtn.classList.remove('hidden');
                 statusText.textContent = T('status_waiting');
+                statusText.className = 'text-gray-500 mb-6';
 
                 checkForOtp(fiveSimOrderId);
 
@@ -187,10 +236,13 @@
                 errorMessage.textContent = `Error: ${error.message}`;
                 errorMessage.classList.remove('hidden');
                 statusText.textContent = T('status_failed');
+                statusText.className = 'text-red-600 font-bold mb-6';
             }
         }
 
         async function checkForOtp(fiveSimOrderId) {
+            let lastOtp = null;
+
             const interval = setInterval(async () => {
                 try {
                     const otpResponse = await fetch(`${backendUrl}/check-otp`, {
@@ -201,17 +253,29 @@
 
                     const otpResult = await otpResponse.json();
 
-                    if (otpResponse.ok && otpResult.otp) {
+                    if (otpResponse.ok && otpResult.otp && otpResult.otp !== lastOtp) {
+                        lastOtp = otpResult.otp;
                         otpBox.textContent = otpResult.otp;
-                        copyOtpBtn.classList.remove('hidden'); // Show copy button
+                        copyOtpBtn.classList.remove('hidden');
                         statusText.textContent = T('status_success');
-                        clearInterval(interval);
+                        statusText.className = 'text-green-600 font-bold mb-6';
+                        
+                        // NEW: Show the success popup
+                        successModal.classList.remove('hidden');
                     }
 
                 } catch (error) {
                     console.error("Error checking for OTP:", error);
                 }
             }, 5000);
+
+            setTimeout(() => {
+                clearInterval(interval);
+                if (!lastOtp) {
+                    statusText.textContent = T('status_expired');
+                    statusText.className = 'text-yellow-600 font-bold mb-6';
+                }
+            }, 600000);
         }
 
         window.onload = () => {
