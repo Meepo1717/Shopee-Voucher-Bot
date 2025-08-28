@@ -67,7 +67,6 @@
         <hr class="my-6 border-gray-200">
 
         <div class="text-center">
-             <!-- CHANGED: Added 'disabled-link' class -->
              <a id="purchase-btn" href="https://shopee.com.my/havicbot?entryPoint=ShopBySearch&searchKeyword=havic" target="_blank" class="inline-block text-white bg-gray-400 cursor-not-allowed font-medium rounded-lg text-sm w-full px-5 py-3 text-center disabled-link" data-translate="purchase_button">
                 Purchase New Voucher
             </a>
@@ -76,7 +75,22 @@
 
     <!-- Success Modal -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <!-- ... (modal content remains the same) ... -->
+        <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" data-translate="modal_title">Fully Redeemed!</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" data-translate="modal_message">You have successfully claimed your voucher. You can now close this page.</p>
+            </div>
+            <div class="mt-4">
+                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate="modal_button">
+                    Return to Home
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -97,10 +111,69 @@
         const purchaseBtn = document.getElementById('purchase-btn');
 
         // --- Translations ---
-        // ... (translations remain the same) ...
+        const translations = {
+            en: {
+                title: 'Voucher Redemption',
+                status_requesting: 'Requesting a phone number for you...',
+                status_waiting: 'Please kindly wait while the OTP is being generated',
+                status_success: 'Success! Your OTP has arrived.',
+                status_failed: 'Redemption Failed',
+                status_expired: 'Timer expired. Please try again with a new Order ID.',
+                order_id_label: 'Your Order ID & Product',
+                phone_label: 'Generated Phone Number',
+                otp_label: 'Verification Code (OTP)',
+                instructions_title: 'Instructions to claim voucher',
+                instructions_step1: 'Make sure you have log out of the app.',
+                instructions_step2: 'Press Sign Up/Create New Account, insert the phone number generated above, in the app.',
+                instructions_step3: 'Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.',
+                instructions_step4: 'Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience',
+                lang_switcher_text: 'Bahasa Melayu',
+                copy_button_title: 'Copy to clipboard',
+                copied_message: 'Copied!',
+                modal_title: 'Fully Redeemed!',
+                modal_message: 'You have successfully claimed your voucher. You can now close this page.',
+                modal_button: 'Return to Home',
+                fallback_button: 'Generate New Number',
+                purchase_button: 'Purchase New Voucher'
+            },
+            ms: {
+                title: 'Penebusan Baucar',
+                status_requesting: 'Memohon nombor telefon untuk anda...',
+                status_waiting: 'Sila tunggu sementara OTP sedang dijana',
+                status_success: 'Berjaya! OTP anda telah tiba.',
+                status_failed: 'Penebusan Gagal',
+                status_expired: 'Masa tamat. Sila cuba lagi dengan ID Pesanan yang baru.',
+                order_id_label: 'ID Pesanan & Produk Anda',
+                phone_label: 'Nombor Telefon Dijana',
+                otp_label: 'Kod Pengesahan (OTP)',
+                instructions_title: 'Arahan untuk menebus baucar',
+                instructions_step1: 'Pastikan anda telah log keluar daripada aplikasi.',
+                instructions_step2: 'Tekan Daftar/Buat Akaun Baru, masukkan nombor telefon yang dijana di atas, dalam aplikasi.',
+                instructions_step3: 'Klik sahkan melalui SMS dan sila tunggu 2-10 minit untuk OTP dijana.',
+                instructions_step4: 'Sila kekal di halaman ini dalam tempoh tersebut. Menutup halaman ini mungkin mengganggu proses mendapatkan OTP. Terima kasih atas kesabaran anda.',
+                lang_switcher_text: 'English',
+                copy_button_title: 'Salin ke papan keratan',
+                copied_message: 'Disalin!',
+                modal_title: 'Berjaya Ditebus!',
+                modal_message: 'Anda telah berjaya menebus baucar anda. Anda boleh menutup halaman ini sekarang.',
+                modal_button: 'Kembali ke Laman Utama',
+                fallback_button: 'Jana Nombor Baru',
+                purchase_button: 'Beli Baucar Baru'
+            }
+        };
         
         // --- Product Display Name Map ---
-        // ... (product map remains the same) ...
+        const productDisplayNames = {
+            'zus_coffee': 'Zus Coffee',
+            'gigi_coffee': 'Gigi Coffee',
+            'tealive': 'Tealive',
+            'kfc': 'KFC',
+            'chagee': 'Chagee',
+            'kenangan_coffee': 'Kenangan Coffee',
+            'shein': 'Shein',
+            'luckin_coffee': 'Luckin Coffee',
+            'marrybrown': 'Marrybrown'
+        };
 
         let currentLang = 'en';
         let otpCheckInterval;
@@ -108,7 +181,17 @@
         const FALLBACK_PRODUCTS = ['chagee', 'kenangan_coffee', 'luckin_coffee', 'marrybrown'];
 
         function setLanguage(lang) {
-            // ... (function remains the same) ...
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[lang][key]) el.innerHTML = translations[lang][key];
+            });
+            document.querySelectorAll('[data-translate-title]').forEach(el => {
+                const key = el.getAttribute('data-translate-title');
+                if (translations[lang][key]) el.title = translations[lang][key];
+            });
+            langSwitcher.textContent = translations[lang].lang_switcher_text;
         }
 
         function T(key) {
@@ -116,7 +199,24 @@
         }
 
         function copyToClipboard(text, button) {
-            // ... (copy function remains the same) ...
+            const originalContent = button.innerHTML;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                button.innerHTML = T('copied_message');
+                button.classList.add('text-green-600');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            document.body.removeChild(textarea);
+
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('text-green-600');
+            }, 1500);
         }
 
         function getQueryParam(param) {
@@ -125,19 +225,67 @@
         }
 
         function startCountdown(duration) {
-            // ... (function remains the same) ...
+            if (countdownInterval) clearInterval(countdownInterval);
+            let timer = duration;
+            timerContainer.classList.remove('hidden');
+
+            countdownInterval = setInterval(() => {
+                let minutes = parseInt(timer / 60, 10);
+                let seconds = parseInt(timer % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                timerDisplay.textContent = minutes + ":" + seconds;
+
+                if (--timer < 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
         }
 
         const backendUrl = 'https://havicbot-backend.onrender.com';
 
         async function getPhoneNumber(isFallback = false) {
-            // ... (function remains the same) ...
+            const orderId = getQueryParam('orderId');
+            const product = getQueryParam('product');
+            
+            statusText.textContent = T('status_requesting');
+            statusText.className = 'text-blue-600 mb-6';
+            fallbackSection.classList.add('hidden');
+            otpBox.innerHTML = '';
+            otpBox.classList.add('animate-pulse', 'bg-gray-50');
+            copyOtpBtn.classList.add('hidden');
+
+            try {
+                const endpoint = isFallback ? '/get-fallback-phone' : '/get-phone';
+                const response = await fetch(`${backendUrl}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shopeeId: orderId, product: product })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+
+                phoneNumberBox.classList.remove('animate-pulse');
+                phoneNumberBox.textContent = result.phoneNumber;
+                copyPhoneBtn.classList.remove('hidden');
+                statusText.textContent = T('status_waiting');
+                statusText.className = 'text-gray-500 mb-6';
+
+                checkForOtp(result.provider, result.providerOrderId);
+
+            } catch (error) {
+                statusText.textContent = `Error: ${error.message}`;
+                statusText.className = 'text-red-600 font-bold mb-6';
+            }
         }
 
         async function checkForOtp(provider, providerOrderId) {
             if (otpCheckInterval) clearInterval(otpCheckInterval);
             
-            startCountdown(300);
+            startCountdown(300); // Start the 5-minute timer
             
             let lastOtp = null;
             const orderId = getQueryParam('orderId');
@@ -159,10 +307,9 @@
                         statusText.textContent = T('status_success');
                         statusText.className = 'text-green-600 font-bold mb-6';
                         successModal.classList.remove('hidden');
-                        clearInterval(countdownInterval);
+                        clearInterval(countdownInterval); // Stop countdown on success
                         timerContainer.classList.add('hidden');
                         
-                        // Enable the purchase button on success
                         purchaseBtn.classList.remove('bg-gray-400', 'cursor-not-allowed', 'disabled-link');
                         purchaseBtn.classList.add('bg-[#EE4D2D]', 'hover:bg-[#d73410]');
 
@@ -191,8 +338,6 @@
             }, 300000);
         }
         
-        // --- Event Listeners ---
-        // NEW: Add event listener to prevent click when disabled
         purchaseBtn.addEventListener('click', function(event) {
             if (purchaseBtn.classList.contains('disabled-link')) {
                 event.preventDefault();
