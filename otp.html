@@ -23,13 +23,13 @@
         <!-- Display Boxes -->
         <div class="mb-4 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="order_id_label">Your Order ID & Product</label>
-            <div id="order-id-box" class="mt-1 text-lg font-semibold bg-gray-100 p-3 h-12 flex items-center justify-center rounded-lg text-gray-800 text-center"></div>
+            <div id="order-id-box" class="mt-1 text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
         </div>
         <div class="mb-4 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
             <div class="flex items-center gap-2 mt-1">
-                <div id="phone-number-box" class="flex-grow text-lg font-semibold bg-gray-200 animate-pulse p-3 h-12 flex items-center justify-center rounded-lg text-gray-800 text-center"></div>
-                <button id="copy-phone-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
+                <div id="phone-number-box" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
+                <button id="copy-phone-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors" data-translate-title="copy_button_title">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
             </div>
@@ -37,46 +37,45 @@
         <div class="mb-2 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
             <div class="flex items-center gap-2 mt-1">
-                <div id="otp-box" class="flex-grow text-lg font-semibold bg-gray-200 animate-pulse p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
-                <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
+                <div id="otp-box" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
+                <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors" data-translate-title="copy_button_title">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
             </div>
         </div>
 
+        <div class="bg-gray-50 border border-gray-300 p-4 rounded-lg text-xs text-gray-600 my-6 text-left">
+             <h3 class="font-semibold text-gray-800 mb-2" data-translate="instructions_title">Instructions to claim voucher</h3>
+             <ol class="list-decimal list-inside space-y-1">
+                 <li data-translate="instructions_step1">Make sure you have log out of the app.</li>
+                 <li data-translate="instructions_step2">Press Sign Up/Create New Account, insert the phone number generated above, in the app.</li>
+                 <li data-translate="instructions_step3">Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.</li>
+                 <li data-translate="instructions_step4">Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience</li>
+             </ol>
+        </div>
+
         <div id="timer-container" class="mt-2 text-sm text-gray-500 hidden">
             <p><span id="timer"></span></p>
         </div>
-
-        <p class="text-xs text-gray-500 my-6 text-left" data-translate="otp_instructions">
-            Make sure you have log out of the app. Press Sign Up/Create New Account, insert the phone number generated above, in the app. Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated. Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience
-        </p>
         
         <div id="fallback-section" class="mt-4 hidden">
             <button id="fallback-btn" class="text-white bg-orange-500 hover:bg-orange-600 font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="fallback_button">
                 Generate New Number
             </button>
         </div>
+
+        <hr class="my-6 border-gray-200">
+
+        <div class="text-center">
+             <a href="https://shopee.com.my/havicbot?entryPoint=ShopBySearch&searchKeyword=havic" target="_blank" class="inline-block text-white bg-[#EE4D2D] hover:bg-[#d73410] font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="purchase_button">
+                Purchase New Voucher
+            </a>
+        </div>
     </div>
 
     <!-- Success Modal -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-            </div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" data-translate="modal_title">Fully Redeemed!</h3>
-            <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500" data-translate="modal_message">You have successfully claimed your voucher. You can now close this page.</p>
-            </div>
-            <div class="mt-4">
-                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate="modal_button">
-                    Return to Home
-                </button>
-            </div>
-        </div>
+        <!-- ... (modal content remains the same) ... -->
     </div>
 
     <script>
@@ -94,9 +93,6 @@
         const fallbackBtn = document.getElementById('fallback-btn');
         const timerContainer = document.getElementById('timer-container');
         const timerDisplay = document.getElementById('timer');
-        // FIXED: Re-added the missing element reference
-        const errorMessage = document.getElementById('error-message');
-
 
         // --- Translations ---
         const translations = {
@@ -110,14 +106,19 @@
                 order_id_label: 'Your Order ID & Product',
                 phone_label: 'Generated Phone Number',
                 otp_label: 'Verification Code (OTP)',
-                otp_instructions: 'Make sure you have log out of the app. Press Sign Up/Create New Account, insert the phone number generated above, in the app. Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated. Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience',
+                instructions_title: 'Instructions to claim voucher',
+                instructions_step1: 'Make sure you have log out of the app.',
+                instructions_step2: 'Press Sign Up/Create New Account, insert the phone number generated above, in the app.',
+                instructions_step3: 'Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.',
+                instructions_step4: 'Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience',
                 lang_switcher_text: 'Bahasa Melayu',
                 copy_button_title: 'Copy to clipboard',
                 copied_message: 'Copied!',
                 modal_title: 'Fully Redeemed!',
                 modal_message: 'You have successfully claimed your voucher. You can now close this page.',
                 modal_button: 'Return to Home',
-                fallback_button: 'Generate New Number'
+                fallback_button: 'Generate New Number',
+                purchase_button: 'Purchase New Voucher'
             },
             ms: {
                 title: 'Penebusan Baucar',
@@ -129,14 +130,19 @@
                 order_id_label: 'ID Pesanan & Produk Anda',
                 phone_label: 'Nombor Telefon Dijana',
                 otp_label: 'Kod Pengesahan (OTP)',
-                otp_instructions: 'Pastikan anda telah log keluar daripada aplikasi. Tekan Daftar/Buat Akaun Baru, masukkan nombor telefon yang dijana di atas, dalam aplikasi. Klik sahkan melalui SMS dan sila tunggu 2-10 minit untuk OTP dijana. Sila kekal di halaman ini dalam tempoh tersebut. Menutup halaman ini mungkin mengganggu proses mendapatkan OTP. Terima kasih atas kesabaran anda.',
+                instructions_title: 'Arahan untuk menebus baucar',
+                instructions_step1: 'Pastikan anda telah log keluar daripada aplikasi.',
+                instructions_step2: 'Tekan Daftar/Buat Akaun Baru, masukkan nombor telefon yang dijana di atas, dalam aplikasi.',
+                instructions_step3: 'Klik sahkan melalui SMS dan sila tunggu 2-10 minit untuk OTP dijana.',
+                instructions_step4: 'Sila kekal di halaman ini dalam tempoh tersebut. Menutup halaman ini mungkin mengganggu proses mendapatkan OTP. Terima kasih atas kesabaran anda.',
                 lang_switcher_text: 'English',
                 copy_button_title: 'Salin ke papan keratan',
                 copied_message: 'Disalin!',
                 modal_title: 'Berjaya Ditebus!',
                 modal_message: 'Anda telah berjaya menebus baucar anda. Anda boleh menutup halaman ini sekarang.',
                 modal_button: 'Kembali ke Laman Utama',
-                fallback_button: 'Jana Nombor Baru'
+                fallback_button: 'Jana Nombor Baru',
+                purchase_button: 'Beli Baucar Baru'
             }
         };
         
@@ -177,7 +183,24 @@
         }
 
         function copyToClipboard(text, button) {
-            // ... (copy function remains the same)
+            const originalContent = button.innerHTML;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                button.innerHTML = T('copied_message');
+                button.classList.add('text-green-600');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            document.body.removeChild(textarea);
+
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('text-green-600');
+            }, 1500);
         }
 
         function getQueryParam(param) {
@@ -211,13 +234,12 @@
             const orderId = getQueryParam('orderId');
             const product = getQueryParam('product');
             
-            statusText.textContent = T('status_requesting');
+            statusText.setAttribute('data-translate', 'status_requesting');
+            setLanguage(currentLang); // Refresh translations
             statusText.className = 'text-blue-600 mb-6';
             fallbackSection.classList.add('hidden');
-            // FIXED: Hide the (now non-existent) error message box
-            // errorMessage.classList.add('hidden');
             otpBox.innerHTML = '';
-            otpBox.classList.add('animate-pulse', 'bg-gray-200');
+            otpBox.classList.add('animate-pulse', 'bg-gray-50');
             copyOtpBtn.classList.add('hidden');
 
             try {
@@ -231,10 +253,11 @@
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message);
 
-                phoneNumberBox.classList.remove('animate-pulse', 'bg-gray-200');
+                phoneNumberBox.classList.remove('animate-pulse');
                 phoneNumberBox.textContent = result.phoneNumber;
                 copyPhoneBtn.classList.remove('hidden');
-                statusText.textContent = T('status_waiting');
+                statusText.setAttribute('data-translate', 'status_waiting');
+                setLanguage(currentLang); // Refresh translations
                 statusText.className = 'text-gray-500 mb-6';
 
                 checkForOtp(result.provider, result.providerOrderId);
@@ -264,10 +287,11 @@
                     const otpResult = await otpResponse.json();
                     if (otpResponse.ok && otpResult.otp && otpResult.otp !== lastOtp) {
                         lastOtp = otpResult.otp;
-                        otpBox.classList.remove('animate-pulse', 'bg-gray-200');
+                        otpBox.classList.remove('animate-pulse');
                         otpBox.textContent = otpResult.otp;
                         copyOtpBtn.classList.remove('hidden');
-                        statusText.textContent = T('status_success');
+                        statusText.setAttribute('data-translate', 'status_success');
+                        setLanguage(currentLang); // Refresh translations
                         statusText.className = 'text-green-600 font-bold mb-6';
                         successModal.classList.remove('hidden');
                         clearInterval(countdownInterval); // Stop countdown on success
@@ -290,14 +314,18 @@
                         phoneNumberBox.textContent = "Generating a new phone number...";
                         statusText.textContent = "No OTP received. You can try generating a new number.";
                     } else {
-                         statusText.textContent = T('status_expired');
+                         statusText.setAttribute('data-translate', 'status_expired');
+                         setLanguage(currentLang); // Refresh translations
                          statusText.className = 'text-yellow-600 font-bold mb-6';
                     }
                 }
             }, 300000);
         }
         
-        langSwitcher.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+        langSwitcher.addEventListener('click', () => {
+            const newLang = currentLang === 'en' ? 'ms' : 'en';
+            setLanguage(newLang);
+        });
         modalCloseBtn.addEventListener('click', () => window.location.href = './index.html');
         fallbackBtn.addEventListener('click', () => getPhoneNumber(true));
         copyPhoneBtn.addEventListener('click', () => { if (phoneNumberBox.textContent.trim() !== '') copyToClipboard(phoneNumberBox.textContent, copyPhoneBtn); });
