@@ -47,8 +47,8 @@
         <div class="bg-gray-50 border border-gray-300 p-4 rounded-lg text-xs text-gray-600 my-6 text-left">
              <h3 class="font-semibold text-gray-800 mb-2" data-translate="instructions_title">Instructions to claim voucher</h3>
              <ol class="list-decimal list-inside space-y-1">
-                 <li data-translate="instructions_step1">Make sure you have logged out of the app.</li>
-                 <li data-translate="instructions_step2">Press Sign Up/Create New Account, insert the phone number generated above in the app.</li>
+                 <li data-translate="instructions_step1">Make sure you have log out of the app.</li>
+                 <li data-translate="instructions_step2">Press Sign Up/Create New Account, insert the phone number generated above, in the app.</li>
                  <li data-translate="instructions_step3">Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.</li>
                  <li data-translate="instructions_step4">Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience</li>
              </ol>
@@ -67,8 +67,8 @@
         <hr class="my-6 border-gray-200">
 
         <div class="text-center">
-             <!-- CHANGED: Added id="purchase-btn" and disabled styles -->
-             <a id="purchase-btn" href="https://shopee.com.my/havicbot?entryPoint=ShopBySearch&searchKeyword=havic" target="_blank" class="inline-block text-white bg-gray-400 cursor-not-allowed font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="purchase_button">
+             <!-- CHANGED: Added 'disabled-link' class -->
+             <a id="purchase-btn" href="https://shopee.com.my/havicbot?entryPoint=ShopBySearch&searchKeyword=havic" target="_blank" class="inline-block text-white bg-gray-400 cursor-not-allowed font-medium rounded-lg text-sm w-full px-5 py-3 text-center disabled-link" data-translate="purchase_button">
                 Purchase New Voucher
             </a>
         </div>
@@ -94,7 +94,7 @@
         const fallbackBtn = document.getElementById('fallback-btn');
         const timerContainer = document.getElementById('timer-container');
         const timerDisplay = document.getElementById('timer');
-        const purchaseBtn = document.getElementById('purchase-btn'); // New element reference
+        const purchaseBtn = document.getElementById('purchase-btn');
 
         // --- Translations ---
         // ... (translations remain the same) ...
@@ -162,8 +162,8 @@
                         clearInterval(countdownInterval);
                         timerContainer.classList.add('hidden');
                         
-                        // NEW: Enable the purchase button on success
-                        purchaseBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                        // Enable the purchase button on success
+                        purchaseBtn.classList.remove('bg-gray-400', 'cursor-not-allowed', 'disabled-link');
                         purchaseBtn.classList.add('bg-[#EE4D2D]', 'hover:bg-[#d73410]');
 
                         await fetch(`${backendUrl}/confirm-redemption`, {
@@ -191,7 +191,19 @@
             }, 300000);
         }
         
-        // ... (event listeners remain the same) ...
+        // --- Event Listeners ---
+        // NEW: Add event listener to prevent click when disabled
+        purchaseBtn.addEventListener('click', function(event) {
+            if (purchaseBtn.classList.contains('disabled-link')) {
+                event.preventDefault();
+            }
+        });
+
+        langSwitcher.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+        modalCloseBtn.addEventListener('click', () => window.location.href = './index.html');
+        fallbackBtn.addEventListener('click', () => getPhoneNumber(true));
+        copyPhoneBtn.addEventListener('click', () => { if (phoneNumberBox.textContent.trim() !== '') copyToClipboard(phoneNumberBox.textContent, copyPhoneBtn); });
+        copyOtpBtn.addEventListener('click', () => { if (otpBox.textContent.trim() !== '') copyToClipboard(otpBox.textContent, copyOtpBtn); });
 
         window.onload = () => {
             const orderId = getQueryParam('orderId');
