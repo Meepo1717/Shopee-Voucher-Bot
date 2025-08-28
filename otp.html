@@ -44,7 +44,6 @@
             </div>
         </div>
 
-        <!-- NEW: Countdown Timer Display -->
         <div id="timer-container" class="mt-2 text-sm text-gray-500 hidden">
             <p><span id="timer"></span></p>
         </div>
@@ -62,7 +61,22 @@
 
     <!-- Success Modal -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <!-- ... (modal content remains the same) ... -->
+        <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" data-translate="modal_title">Fully Redeemed!</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" data-translate="modal_message">You have successfully claimed your voucher. You can now close this page.</p>
+            </div>
+            <div class="mt-4">
+                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate="modal_button">
+                    Return to Home
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -80,6 +94,9 @@
         const fallbackBtn = document.getElementById('fallback-btn');
         const timerContainer = document.getElementById('timer-container');
         const timerDisplay = document.getElementById('timer');
+        // FIXED: Re-added the missing element reference
+        const errorMessage = document.getElementById('error-message');
+
 
         // --- Translations ---
         const translations = {
@@ -197,6 +214,8 @@
             statusText.textContent = T('status_requesting');
             statusText.className = 'text-blue-600 mb-6';
             fallbackSection.classList.add('hidden');
+            // FIXED: Hide the (now non-existent) error message box
+            // errorMessage.classList.add('hidden');
             otpBox.innerHTML = '';
             otpBox.classList.add('animate-pulse', 'bg-gray-200');
             copyOtpBtn.classList.add('hidden');
