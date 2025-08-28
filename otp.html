@@ -6,37 +6,6 @@
     <title>Get Your OTP - HavicBot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- NEW: Styles for pouring sand animation -->
-    <style>
-        .sand-top {
-            animation: shrink 2s infinite linear;
-            transform-origin: bottom;
-        }
-        .sand-bottom {
-            animation: grow 2s infinite linear;
-            transform-origin: top;
-            transform: scaleY(0); /* Start empty */
-        }
-        .sand-stream {
-            animation: stream 2s infinite linear;
-            opacity: 0;
-        }
-        @keyframes shrink {
-            0% { transform: scaleY(1); }
-            90% { transform: scaleY(0); }
-            100% { transform: scaleY(0); }
-        }
-        @keyframes grow {
-            0% { transform: scaleY(0); }
-            10% { transform: scaleY(0); }
-            100% { transform: scaleY(1); }
-        }
-        @keyframes stream {
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-    </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
@@ -59,17 +28,7 @@
         <div class="mb-4 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
             <div class="flex items-center gap-2 mt-1">
-                <div id="phone-number-box" class="flex-grow text-lg font-semibold bg-gray-100 p-3 h-12 flex items-center justify-center rounded-lg text-gray-800 text-center">
-                    <!-- NEW: Pouring Sand Hourglass SVG -->
-                    <svg id="phone-hourglass" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" class="text-gray-400">
-                        <path d="M5 22h14 M5 2h14 M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22 M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <g>
-                            <path d="M9 7h6L12 11.5z" fill="currentColor" class="sand-top"/>
-                            <path d="M9 17h6L12 12.5z" fill="currentColor" class="sand-bottom"/>
-                            <line x1="12" y1="11.5" x2="12" y2="12.5" stroke="currentColor" stroke-width="1.5" class="sand-stream"/>
-                        </g>
-                    </svg>
-                </div>
+                <div id="phone-number-box" class="flex-grow text-lg font-semibold bg-gray-200 animate-pulse p-3 h-12 flex items-center justify-center rounded-lg text-gray-800 text-center"></div>
                 <button id="copy-phone-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
@@ -78,26 +37,11 @@
         <div class="mb-2 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
             <div class="flex items-center gap-2 mt-1">
-                <div id="otp-box" class="flex-grow text-lg font-semibold bg-gray-100 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center">
-                    <!-- NEW: Pouring Sand Hourglass SVG -->
-                    <svg id="otp-hourglass" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" class="text-gray-400">
-                        <path d="M5 22h14 M5 2h14 M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22 M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <g>
-                            <path d="M9 7h6L12 11.5z" fill="currentColor" class="sand-top"/>
-                            <path d="M9 17h6L12 12.5z" fill="currentColor" class="sand-bottom"/>
-                            <line x1="12" y1="11.5" x2="12" y2="12.5" stroke="currentColor" stroke-width="1.5" class="sand-stream"/>
-                        </g>
-                    </svg>
-                </div>
+                <div id="otp-box" class="flex-grow text-lg font-semibold bg-gray-200 animate-pulse p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
                 <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors hidden" data-translate-title="copy_button_title">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
             </div>
-        </div>
-
-        <!-- Countdown Timer Display -->
-        <div id="timer-container" class="mt-2 text-sm text-gray-500 hidden">
-            <p><span data-translate="timer_prefix">Time remaining:</span> <span id="timer"></span></p>
         </div>
 
         <p class="text-xs text-gray-500 my-6" data-translate="otp_instructions">
@@ -111,17 +55,26 @@
                 Generate New Number
             </button>
         </div>
-
-        <div class="mt-4">
-            <button id="back-btn" class="text-sm text-gray-600 hover:text-gray-800 hover:underline" data-translate="back_button">
-                &larr; Go Back
-            </button>
-        </div>
     </div>
 
     <!-- Success Modal -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <!-- ... (modal content remains the same) ... -->
+        <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" data-translate="modal_title">Fully Redeemed!</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" data-translate="modal_message">You have successfully claimed your voucher. You can now close this page.</p>
+            </div>
+            <div class="mt-4">
+                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate="modal_button">
+                    Return to Home
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -129,91 +82,173 @@
         const statusText = document.getElementById('status-text');
         const phoneNumberBox = document.getElementById('phone-number-box');
         const otpBox = document.getElementById('otp-box');
-        const phoneHourglass = document.getElementById('phone-hourglass');
-        const otpHourglass = document.getElementById('otp-hourglass');
-        const timerContainer = document.getElementById('timer-container');
-        const timerDisplay = document.getElementById('timer');
-        const orderIdBox = document.getElementById('order-id-box');
+        const errorMessage = document.getElementById('error-message');
+        const langSwitcher = document.getElementById('lang-switcher');
         const copyPhoneBtn = document.getElementById('copy-phone-btn');
         const copyOtpBtn = document.getElementById('copy-otp-btn');
-        // ... (other element references)
+        const orderIdBox = document.getElementById('order-id-box');
+        const successModal = document.getElementById('success-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const fallbackSection = document.getElementById('fallback-section');
+        const fallbackBtn = document.getElementById('fallback-btn');
 
         // --- Translations ---
         const translations = {
             en: {
-                // ... (all previous translations)
-                timer_prefix: 'Time remaining:'
+                title: 'Voucher Redemption',
+                status_requesting: 'Requesting a phone number for you...',
+                status_waiting: 'Waiting for SMS... This can take a minute.',
+                status_success: 'Success! Your OTP has arrived.',
+                status_failed: 'Redemption Failed',
+                status_expired: 'Timer expired. Please try again with a new Order ID.',
+                order_id_label: 'Your Order ID',
+                phone_label: 'Generated Phone Number',
+                otp_label: 'Verification Code (OTP)',
+                otp_instructions: 'Your code is being generated. Please stay on this page to ensure delivery. This usually takes 2-10 minutes.',
+                lang_switcher_text: 'Bahasa Melayu',
+                copy_button_title: 'Copy to clipboard',
+                copied_message: 'Copied!',
+                modal_title: 'Fully Redeemed!',
+                modal_message: 'You have successfully claimed your voucher. You can now close this page.',
+                modal_button: 'Return to Home',
+                fallback_button: 'Generate New Number'
             },
             ms: {
-                // ... (all previous translations)
-                timer_prefix: 'Masa tinggal:'
+                title: 'Penebusan Baucar',
+                status_requesting: 'Memohon nombor telefon untuk anda...',
+                status_waiting: 'Menunggu SMS... Ini mungkin mengambil masa seminit.',
+                status_success: 'Berjaya! OTP anda telah tiba.',
+                status_failed: 'Penebusan Gagal',
+                status_expired: 'Masa tamat. Sila cuba lagi dengan ID Pesanan yang baru.',
+                order_id_label: 'ID Pesanan Anda',
+                phone_label: 'Nombor Telefon Dijana',
+                otp_label: 'Kod Pengesahan (OTP)',
+                otp_instructions: 'Kod anda sedang dijana. Sila kekal di halaman ini untuk memastikan penghantaran. Proses ini biasanya mengambil masa 2-10 minit.',
+                lang_switcher_text: 'English',
+                copy_button_title: 'Salin ke papan keratan',
+                copied_message: 'Disalin!',
+                modal_title: 'Berjaya Ditebus!',
+                modal_message: 'Anda telah berjaya menebus baucar anda. Anda boleh menutup halaman ini sekarang.',
+                modal_button: 'Kembali ke Laman Utama',
+                fallback_button: 'Jana Nombor Baru'
             }
         };
         
-        // --- State Variables ---
+        let currentLang = 'en';
         let otpCheckInterval;
-        let countdownInterval;
-        // ... (other state variables)
+        const FALLBACK_PRODUCTS = ['chagee', 'kenangan_coffee', 'luckin_coffee', 'marrybrown'];
 
-        // --- Functions ---
-        // ... (setLanguage, T, copyToClipboard, getQueryParam remain the same)
-
-        function startCountdown(duration) {
-            let timer = duration;
-            timerContainer.classList.remove('hidden');
-
-            countdownInterval = setInterval(() => {
-                let minutes = parseInt(timer / 60, 10);
-                let seconds = parseInt(timer % 60, 10);
-
-                minutes = minutes < 10 ? "0" + minutes : minutes;
-                seconds = seconds < 10 ? "0" + seconds : seconds;
-
-                timerDisplay.textContent = minutes + ":" + seconds;
-
-                if (--timer < 0) {
-                    clearInterval(countdownInterval);
-                }
-            }, 1000);
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[lang][key]) el.innerHTML = translations[lang][key];
+            });
+            document.querySelectorAll('[data-translate-title]').forEach(el => {
+                const key = el.getAttribute('data-translate-title');
+                if (translations[lang][key]) el.title = translations[lang][key];
+            });
+            langSwitcher.textContent = translations[lang].lang_switcher_text;
         }
 
-        // --- Main Logic ---
+        function T(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function copyToClipboard(text, button) {
+            const originalContent = button.innerHTML;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                button.innerHTML = T('copied_message');
+                button.classList.add('text-green-600');
+            } catch (err) { console.error('Failed to copy text: ', err); }
+            document.body.removeChild(textarea);
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('text-green-600');
+            }, 1500);
+        }
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
         const backendUrl = 'https://havicbot-backend.onrender.com';
 
         async function getPhoneNumber(isFallback = false) {
-            // ... (this function remains mostly the same)
+            const orderId = getQueryParam('orderId');
+            const product = getQueryParam('product');
+            
+            statusText.textContent = T('status_requesting');
+            statusText.className = 'text-blue-600 mb-6';
+            fallbackSection.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            otpBox.innerHTML = '';
+            otpBox.classList.add('animate-pulse', 'bg-gray-200');
+            copyOtpBtn.classList.add('hidden');
+
             try {
-                // ...
-                phoneHourglass.style.display = 'none'; // Hide hourglass
+                const endpoint = isFallback ? '/get-fallback-phone' : '/get-phone';
+                const response = await fetch(`${backendUrl}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shopeeId: orderId, product: product })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+
+                phoneNumberBox.classList.remove('animate-pulse', 'bg-gray-200');
                 phoneNumberBox.textContent = result.phoneNumber;
-                // ...
+                copyPhoneBtn.classList.remove('hidden');
+                statusText.textContent = T('status_waiting');
+                statusText.className = 'text-gray-500 mb-6';
+
                 checkForOtp(result.provider, result.providerOrderId);
+
             } catch (error) {
-                // ...
-                phoneHourglass.style.display = 'none';
-                otpHourglass.style.display = 'none';
+                errorMessage.textContent = `Error: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+                statusText.textContent = T('status_failed');
+                statusText.className = 'text-red-600 font-bold mb-6';
             }
         }
 
         async function checkForOtp(provider, providerOrderId) {
             if (otpCheckInterval) clearInterval(otpCheckInterval);
-            if (countdownInterval) clearInterval(countdownInterval); // Clear previous countdown
-            
-            startCountdown(300); // Start the 5-minute (300 seconds) timer
             
             let lastOtp = null;
-            // ... (rest of the function)
+            const orderId = getQueryParam('orderId');
+            const product = getQueryParam('product');
 
             otpCheckInterval = setInterval(async () => {
                 try {
-                    // ...
+                    const otpResponse = await fetch(`${backendUrl}/check-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ provider: provider, providerOrderId: providerOrderId })
+                    });
+                    const otpResult = await otpResponse.json();
                     if (otpResponse.ok && otpResult.otp && otpResult.otp !== lastOtp) {
                         lastOtp = otpResult.otp;
-                        otpHourglass.style.display = 'none'; // Hide hourglass
+                        otpBox.classList.remove('animate-pulse', 'bg-gray-200');
                         otpBox.textContent = otpResult.otp;
-                        // ...
-                        clearInterval(countdownInterval); // Stop countdown on success
-                        clearInterval(otpCheckInterval); 
+                        copyOtpBtn.classList.remove('hidden');
+                        statusText.textContent = T('status_success');
+                        statusText.className = 'text-green-600 font-bold mb-6';
+                        successModal.classList.remove('hidden');
+                        await fetch(`${backendUrl}/confirm-redemption`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ shopeeId: orderId })
+                        });
+                        clearInterval(otpCheckInterval);
                     }
                 } catch (error) { console.error("Error checking for OTP:", error); }
             }, 5000);
@@ -221,15 +256,23 @@
             setTimeout(() => {
                 if (!lastOtp) {
                     clearInterval(otpCheckInterval);
-                    clearInterval(countdownInterval);
-                    timerContainer.classList.add('hidden');
-                    // ... (rest of the timeout logic)
+                    if (FALLBACK_PRODUCTS.includes(product)) {
+                        fallbackSection.classList.remove('hidden');
+                        statusText.textContent = "No OTP received. You can try generating a new number.";
+                    } else {
+                         statusText.textContent = T('status_expired');
+                         statusText.className = 'text-yellow-600 font-bold mb-6';
+                    }
                 }
-            }, 300000); 
+            }, 300000);
         }
         
         // --- Event Listeners ---
-        // ... (event listeners remain the same)
+        langSwitcher.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+        modalCloseBtn.addEventListener('click', () => window.location.href = './index.html');
+        fallbackBtn.addEventListener('click', () => getPhoneNumber(true));
+        copyPhoneBtn.addEventListener('click', () => { if (phoneNumberBox.textContent.trim() !== '') copyToClipboard(phoneNumberBox.textContent, copyPhoneBtn); });
+        copyOtpBtn.addEventListener('click', () => { if (otpBox.textContent.trim() !== '') copyToClipboard(otpBox.textContent, copyOtpBtn); });
 
         window.onload = () => {
             const orderId = getQueryParam('orderId');
