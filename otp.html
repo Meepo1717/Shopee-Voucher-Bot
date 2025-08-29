@@ -59,7 +59,6 @@
             <p><span id="timer"></span></p>
         </div>
         
-        <!-- NEW: Retry Modal/Popup -->
         <div id="retry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
             <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
                 <h3 class="text-lg leading-6 font-medium text-gray-900" data-translate="retry_modal_title">OTP Failed</h3>
@@ -180,7 +179,6 @@
             elementsToTranslate.forEach(el => {
                 const key = el.getAttribute('data-translate');
                 if (translations[lang][key]) {
-                    // Preserve OTP code if it exists in the status text
                     if (key === 'status_success' && el.id === 'status-text' && !isInitial) {
                         const currentOtp = otpBox.textContent;
                         if(currentOtp && currentOtp.trim() !== '') {
@@ -255,7 +253,7 @@
 
         const backendUrl = 'https://havicbot-backend.onrender.com';
 
-        async function getPhoneNumber() {
+        async function getPhoneNumber(isRetry = false) {
             const orderId = getQueryParam('orderId');
             const product = getQueryParam('product');
             
@@ -273,7 +271,7 @@
                 const response = await fetch(`${backendUrl}/get-phone`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shopeeId: orderId, product: product })
+                    body: JSON.stringify({ shopeeId: orderId, product: product, isRetry: isRetry })
                 });
 
                 const result = await response.json();
@@ -370,7 +368,7 @@
 
         retryModalYesBtn.addEventListener('click', () => {
             retryModal.classList.add('hidden');
-            getPhoneNumber();
+            getPhoneNumber(true);
         });
 
         retryModalNoBtn.addEventListener('click', () => {
