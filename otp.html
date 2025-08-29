@@ -38,6 +38,7 @@
             <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
             <div class="flex items-center gap-2 mt-1">
                 <div id="otp-box" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
+                <!-- FIXED: Removed the 'hidden' class to make the button always visible -->
                 <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors" data-translate-title="copy_button_title">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
@@ -250,12 +251,13 @@
             const orderId = getQueryParam('orderId');
             const product = getQueryParam('product');
             
-            statusText.textContent = T('status_requesting');
+            statusText.setAttribute('data-translate', 'status_requesting');
+            setLanguage(currentLang);
             statusText.className = 'text-blue-600 mb-6';
             fallbackSection.classList.add('hidden');
             otpBox.innerHTML = '';
             otpBox.classList.add('animate-pulse', 'bg-gray-50');
-            copyOtpBtn.classList.add('hidden');
+            // copyOtpBtn.classList.add('hidden'); // Button is now always visible
 
             try {
                 const endpoint = isFallback ? '/get-fallback-phone' : '/get-phone';
@@ -270,8 +272,9 @@
 
                 phoneNumberBox.classList.remove('animate-pulse');
                 phoneNumberBox.textContent = result.phoneNumber;
-                copyPhoneBtn.classList.remove('hidden');
-                statusText.textContent = T('status_waiting');
+                // copyPhoneBtn.classList.remove('hidden'); // Button is now always visible
+                statusText.setAttribute('data-translate', 'status_waiting');
+                setLanguage(currentLang);
                 statusText.className = 'text-gray-500 mb-6';
 
                 checkForOtp(result.provider, result.providerOrderId);
@@ -303,8 +306,9 @@
                         lastOtp = otpResult.otp;
                         otpBox.classList.remove('animate-pulse');
                         otpBox.textContent = otpResult.otp;
-                        copyOtpBtn.classList.remove('hidden');
-                        statusText.textContent = T('status_success');
+                        // copyOtpBtn.classList.remove('hidden'); // Button is now always visible
+                        statusText.setAttribute('data-translate', 'status_success');
+                        setLanguage(currentLang);
                         statusText.className = 'text-green-600 font-bold mb-6';
                         successModal.classList.remove('hidden');
                         clearInterval(countdownInterval); // Stop countdown on success
@@ -331,7 +335,8 @@
                         phoneNumberBox.textContent = "Generating a new phone number...";
                         statusText.textContent = "No OTP received. You can try generating a new number.";
                     } else {
-                         statusText.textContent = T('status_expired');
+                         statusText.setAttribute('data-translate', 'status_expired');
+                         setLanguage(currentLang);
                          statusText.className = 'text-yellow-600 font-bold mb-6';
                     }
                 }
@@ -344,10 +349,21 @@
             }
         });
 
-        langSwitcher.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+        langSwitcher.addEventListener('click', () => {
+            const newLang = currentLang === 'en' ? 'ms' : 'en';
+            setLanguage(newLang);
+        });
         modalCloseBtn.addEventListener('click', () => window.location.href = './index.html');
         fallbackBtn.addEventListener('click', () => getPhoneNumber(true));
-        copyPhoneBtn.addEventListener('click', () => { if (phoneNumberBox.textContent.trim() !== '') copyToClipboard(phoneNumberBox.textContent, copyPhoneBtn); });
+        copyPhoneBtn.addEventListener('click', () => { 
+            let phoneNumber = phoneNumberBox.textContent.trim();
+            if (phoneNumber !== '') {
+                if (phoneNumber.startsWith('+60')) {
+                    phoneNumber = phoneNumber.substring(3);
+                }
+                copyToClipboard(phoneNumber, copyPhoneBtn); 
+            }
+        });
         copyOtpBtn.addEventListener('click', () => { if (otpBox.textContent.trim() !== '') copyToClipboard(otpBox.textContent, copyOtpBtn); });
 
         window.onload = () => {
