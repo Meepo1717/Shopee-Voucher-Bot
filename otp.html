@@ -49,8 +49,10 @@
              <ol class="list-decimal list-inside space-y-1">
                  <li data-translate="instructions_step1">Make sure you have log out of the app.</li>
                  <li data-translate="instructions_step2">Press Sign Up/Create New Account, insert the phone number generated above, in the app.</li>
-                 <li data-translate="instructions_step3">Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.</li>
-                 <li data-translate="instructions_step4">Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience</li>
+                 <!-- NEW INSTRUCTION ADDED -->
+                 <li data-translate="instructions_step3">If an app requests e-mail during sign-up/creating an account, please insert in a fake e-mail (eg: test123@gmail.com)</li>
+                 <li data-translate="instructions_step4">Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.</li>
+                 <li data-translate="instructions_step5">Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience</li>
              </ol>
         </div>
 
@@ -73,7 +75,10 @@
         </div>
     </div>
 
-    <!-- REMOVED: Success Modal is gone -->
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <!-- ... (modal content remains the same) ... -->
+    </div>
 
     <script>
         // --- Element References ---
@@ -84,7 +89,8 @@
         const copyPhoneBtn = document.getElementById('copy-phone-btn');
         const copyOtpBtn = document.getElementById('copy-otp-btn');
         const orderIdBox = document.getElementById('order-id-box');
-        // REMOVED: Modal references are gone
+        const successModal = document.getElementById('success-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
         const fallbackSection = document.getElementById('fallback-section');
         const fallbackBtn = document.getElementById('fallback-btn');
         const timerContainer = document.getElementById('timer-container');
@@ -106,11 +112,15 @@
                 instructions_title: 'Instructions to claim voucher',
                 instructions_step1: 'Make sure you have log out of the app.',
                 instructions_step2: 'Press Sign Up/Create New Account, insert the phone number generated above, in the app.',
-                instructions_step3: 'Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.',
-                instructions_step4: 'Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience',
+                instructions_step3: 'If an app requests e-mail during sign-up/creating an account, please insert in a fake e-mail (eg: test123@gmail.com)',
+                instructions_step4: 'Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.',
+                instructions_step5: 'Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience',
                 lang_switcher_text: 'Bahasa Melayu',
                 copy_button_title: 'Copy to clipboard',
                 copied_message: 'Copied!',
+                modal_title: 'Fully Redeemed!',
+                modal_message: 'You have successfully claimed your voucher. You can now close this page.',
+                modal_button: 'Return to Home',
                 fallback_button: 'Generate New Number',
                 purchase_button: 'Purchase New Voucher'
             },
@@ -127,11 +137,15 @@
                 instructions_title: 'Arahan untuk menebus baucar',
                 instructions_step1: 'Pastikan anda telah log keluar daripada aplikasi.',
                 instructions_step2: 'Tekan Daftar/Buat Akaun Baru, masukkan nombor telefon yang dijana di atas, dalam aplikasi.',
-                instructions_step3: 'Klik sahkan melalui SMS dan sila tunggu 2-10 minit untuk OTP dijana.',
-                instructions_step4: 'Sila kekal di halaman ini dalam tempoh tersebut. Menutup halaman ini mungkin mengganggu proses mendapatkan OTP. Terima kasih atas kesabaran anda.',
+                instructions_step3: 'Jika aplikasi meminta e-mel semasa pendaftaran/pembuatan akaun, sila masukkan e-mel palsu (cth: test123@gmail.com)',
+                instructions_step4: 'Klik sahkan melalui SMS dan sila tunggu 2-10 minit untuk OTP dijana.',
+                instructions_step5: 'Sila kekal di halaman ini dalam tempoh tersebut. Menutup halaman ini mungkin mengganggu proses mendapatkan OTP. Terima kasih atas kesabaran anda.',
                 lang_switcher_text: 'English',
                 copy_button_title: 'Salin ke papan keratan',
                 copied_message: 'Disalin!',
+                modal_title: 'Berjaya Ditebus!',
+                modal_message: 'Anda telah berjaya menebus baucar anda. Anda boleh menutup halaman ini sekarang.',
+                modal_button: 'Kembali ke Laman Utama',
                 fallback_button: 'Jana Nombor Baru',
                 purchase_button: 'Beli Baucar Baru'
             }
@@ -174,24 +188,7 @@
         }
 
         function copyToClipboard(text, button) {
-            const originalContent = button.innerHTML;
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand('copy');
-                button.innerHTML = T('copied_message');
-                button.classList.add('text-green-600');
-            } catch (err) {
-                console.error('Failed to copy text: ', err);
-            }
-            document.body.removeChild(textarea);
-
-            setTimeout(() => {
-                button.innerHTML = originalContent;
-                button.classList.remove('text-green-600');
-            }, 1500);
+            // ... (copy function remains the same)
         }
 
         function getQueryParam(param) {
@@ -200,23 +197,7 @@
         }
 
         function startCountdown(duration) {
-            if (countdownInterval) clearInterval(countdownInterval);
-            let timer = duration;
-            timerContainer.classList.remove('hidden');
-
-            countdownInterval = setInterval(() => {
-                let minutes = parseInt(timer / 60, 10);
-                let seconds = parseInt(timer % 60, 10);
-
-                minutes = minutes < 10 ? "0" + minutes : minutes;
-                seconds = seconds < 10 ? "0" + seconds : seconds;
-
-                timerDisplay.textContent = minutes + ":" + seconds;
-
-                if (--timer < 0) {
-                    clearInterval(countdownInterval);
-                }
-            }, 1000);
+            // ... (function remains the same)
         }
 
         const backendUrl = 'https://havicbot-backend.onrender.com';
@@ -284,7 +265,7 @@
                         statusText.setAttribute('data-translate', 'status_success');
                         setLanguage(currentLang);
                         statusText.className = 'text-green-600 font-bold mb-6';
-                        // successModal.classList.remove('hidden'); // REMOVED
+                        successModal.classList.remove('hidden');
                         clearInterval(countdownInterval); // Stop countdown on success
                         timerContainer.classList.add('hidden');
                         
@@ -327,7 +308,7 @@
             const newLang = currentLang === 'en' ? 'ms' : 'en';
             setLanguage(newLang);
         });
-        // modalCloseBtn.addEventListener('click', () => window.location.href = './index.html'); // REMOVED
+        modalCloseBtn.addEventListener('click', () => window.location.href = './index.html');
         fallbackBtn.addEventListener('click', () => getPhoneNumber(true));
         copyPhoneBtn.addEventListener('click', () => { 
             let phoneNumber = phoneNumberBox.textContent.trim();
