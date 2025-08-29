@@ -38,6 +38,7 @@
             <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
             <div class="flex items-center gap-2 mt-1">
                 <div id="otp-box" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
+                <!-- FIXED: Removed the 'hidden' class to make the button always visible -->
                 <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors" data-translate-title="copy_button_title">
                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
@@ -49,7 +50,6 @@
              <ol class="list-decimal list-inside space-y-1">
                  <li data-translate="instructions_step1">Make sure you have log out of the app.</li>
                  <li data-translate="instructions_step2">Press Sign Up/Create New Account, insert the phone number generated above, in the app.</li>
-                 <!-- NEW INSTRUCTION ADDED -->
                  <li data-translate="instructions_step3">If an app requests e-mail during sign-up/creating an account, please insert in a fake e-mail (eg: test123@gmail.com)</li>
                  <li data-translate="instructions_step4">Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.</li>
                  <li data-translate="instructions_step5">Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience</li>
@@ -75,9 +75,23 @@
         </div>
     </div>
 
-    <!-- Success Modal -->
     <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <!-- ... (modal content remains the same) ... -->
+        <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4" data-translate="modal_title">Fully Redeemed!</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" data-translate="modal_message">You have successfully claimed your voucher. You can now close this page.</p>
+            </div>
+            <div class="mt-4">
+                <button id="modal-close-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate="modal_button">
+                    Return to Home
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -188,7 +202,24 @@
         }
 
         function copyToClipboard(text, button) {
-            // ... (copy function remains the same)
+            const originalContent = button.innerHTML;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                button.innerHTML = T('copied_message');
+                button.classList.add('text-green-600');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            document.body.removeChild(textarea);
+
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('text-green-600');
+            }, 1500);
         }
 
         function getQueryParam(param) {
@@ -197,7 +228,23 @@
         }
 
         function startCountdown(duration) {
-            // ... (function remains the same)
+            if (countdownInterval) clearInterval(countdownInterval);
+            let timer = duration;
+            timerContainer.classList.remove('hidden');
+
+            countdownInterval = setInterval(() => {
+                let minutes = parseInt(timer / 60, 10);
+                let seconds = parseInt(timer % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                timerDisplay.textContent = minutes + ":" + seconds;
+
+                if (--timer < 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
         }
 
         const backendUrl = 'https://havicbot-backend.onrender.com';
@@ -212,7 +259,7 @@
             fallbackSection.classList.add('hidden');
             otpBox.innerHTML = '';
             otpBox.classList.add('animate-pulse', 'bg-gray-50');
-            copyOtpBtn.classList.add('hidden');
+            // copyOtpBtn.classList.add('hidden'); // Button is now always visible
 
             try {
                 const endpoint = isFallback ? '/get-fallback-phone' : '/get-phone';
@@ -227,7 +274,7 @@
 
                 phoneNumberBox.classList.remove('animate-pulse');
                 phoneNumberBox.textContent = result.phoneNumber;
-                copyPhoneBtn.classList.remove('hidden');
+                // copyPhoneBtn.classList.remove('hidden'); // Button is now always visible
                 statusText.setAttribute('data-translate', 'status_waiting');
                 setLanguage(currentLang);
                 statusText.className = 'text-gray-500 mb-6';
@@ -235,6 +282,7 @@
                 checkForOtp(result.provider, result.providerOrderId);
 
             } catch (error) {
+                statusText.removeAttribute('data-translate');
                 statusText.textContent = `Error: ${error.message}`;
                 statusText.className = 'text-red-600 font-bold mb-6';
             }
@@ -243,7 +291,7 @@
         async function checkForOtp(provider, providerOrderId) {
             if (otpCheckInterval) clearInterval(otpCheckInterval);
             
-            startCountdown(300); // Start the 5-minute timer
+            startCountdown(600); 
             
             let lastOtp = null;
             const orderId = getQueryParam('orderId');
@@ -261,12 +309,12 @@
                         lastOtp = otpResult.otp;
                         otpBox.classList.remove('animate-pulse');
                         otpBox.textContent = otpResult.otp;
-                        copyOtpBtn.classList.remove('hidden');
+                        // copyOtpBtn.classList.remove('hidden'); // Button is now always visible
                         statusText.setAttribute('data-translate', 'status_success');
                         setLanguage(currentLang);
                         statusText.className = 'text-green-600 font-bold mb-6';
                         successModal.classList.remove('hidden');
-                        clearInterval(countdownInterval); // Stop countdown on success
+                        clearInterval(countdownInterval);
                         timerContainer.classList.add('hidden');
                         
                         purchaseBtn.classList.remove('bg-gray-400', 'cursor-not-allowed', 'disabled-link');
@@ -295,7 +343,7 @@
                          statusText.className = 'text-yellow-600 font-bold mb-6';
                     }
                 }
-            }, 300000);
+            }, 600000);
         }
         
         purchaseBtn.addEventListener('click', function(event) {
