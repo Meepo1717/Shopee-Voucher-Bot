@@ -17,7 +17,6 @@
 
     <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
         <div class="text-center">
-            <!-- CHANGED: Title color is now Shopee orange -->
             <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color: #EE4D2D;">Voucher Redemption</h1>
             <p class="text-gray-500 mb-6" data-translate="subtitle">Enter your details to begin.</p>
         </div>
@@ -54,21 +53,19 @@
                 </ol>
             </div>
 
-            <!-- CHANGED: Button color is now Shopee orange -->
             <button type="submit" id="submitButton" class="text-white bg-[#EE4D2D] hover:bg-[#d73410] focus:ring-4 focus:outline-none focus:ring-orange-300 font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="verify_button">
                 Verify Order
             </button>
         </form>
         
         <div id="responseMessage" class="mt-6 text-center text-sm font-medium p-4 rounded-lg hidden"></div>
-
-        <!-- REMOVED: Purchase new voucher button is gone -->
     </div>
 
     <script>
         const verifyForm = document.getElementById('verifyForm');
         const responseMessage = document.getElementById('responseMessage');
         const langSwitcher = document.getElementById('lang-switcher');
+        const submitButton = document.getElementById('submitButton');
 
         // --- Language Translation Setup ---
         const translations = {
@@ -85,7 +82,7 @@
                 instructions_step3: 'Copy the full Order ID.',
                 instructions_step4: 'Paste it above and submit.',
                 verify_button: 'Verify Order',
-                purchase_button: 'Purchase New Voucher',
+                verifying_button: 'Verifying...',
                 lang_switcher_text: 'Bahasa Melayu'
             },
             ms: {
@@ -101,7 +98,7 @@
                 instructions_step3: 'Salin ID Pesanan penuh.',
                 instructions_step4: 'Tampal di atas dan hantar.',
                 verify_button: 'Sahkan Pesanan',
-                purchase_button: 'Beli Baucar Baru',
+                verifying_button: 'Mengesahkan...',
                 lang_switcher_text: 'English'
             }
         };
@@ -127,18 +124,53 @@
             setLanguage(newLang);
         });
 
-        verifyForm.addEventListener('submit', function(event) {
+        // --- Form Submission with Verification ---
+        verifyForm.addEventListener('submit', async function(event) {
             event.preventDefault();
             const shopeeId = document.getElementById('shopeeId').value;
             const product = document.getElementById('product').value;
+            const backendUrl = 'https://havicbot-backend.onrender.com'; // IMPORTANT: Make sure this is your correct backend URL
 
-            if (shopeeId && product) {
-                const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}&product=${encodeURIComponent(product)}`, window.location.href);
-                window.location.href = absoluteUrl.href;
-            } else {
+            if (!shopeeId || !product) {
                 responseMessage.textContent = 'Please enter an Order ID and select a product.';
                 responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
                 responseMessage.classList.remove('hidden');
+                return;
+            }
+
+            // Show a "Verifying..." message to the user
+            submitButton.textContent = translations[currentLang].verifying_button;
+            submitButton.disabled = true;
+            responseMessage.classList.add('hidden');
+
+            try {
+                // Call the new /verify-order endpoint on your backend
+                const response = await fetch(`${backendUrl}/verify-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shopeeId: shopeeId, product: product })
+                });
+
+                if (response.ok) {
+                    // If the backend says the order is valid, THEN we redirect
+                    const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}&product=${encodeURIComponent(product)}`, window.location.href);
+                    window.location.href = absoluteUrl.href;
+                } else {
+                    // If the backend says the order is invalid, show an error
+                    const result = await response.json();
+                    responseMessage.textContent = result.message || 'Verification failed. Please check your Order ID.';
+                    responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
+                    responseMessage.classList.remove('hidden');
+                    submitButton.textContent = translations[currentLang].verify_button;
+                    submitButton.disabled = false;
+                }
+            } catch (error) {
+                // Handle network errors
+                responseMessage.textContent = 'Could not connect to the server. Please try again later.';
+                responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
+                responseMessage.classList.remove('hidden');
+                submitButton.textContent = translations[currentLang].verify_button;
+                submitButton.disabled = false;
             }
         });
 
@@ -147,3 +179,4 @@
 
 </body>
 </html>
+
