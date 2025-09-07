@@ -12,18 +12,21 @@
 </head>
 <body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
 
+    <!-- Language Switcher -->
     <div class="absolute top-4 right-4">
         <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
             Bahasa Melayu
         </button>
     </div>
 
+    <!-- Card -->
     <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div class="text-center">
             <h1 class="text-2xl font-bold mb-2 text-slate-800" data-translate="title">Voucher Redemption</h1>
             <p class="text-slate-500 mb-6" data-translate="subtitle">Enter your Shopee Order ID to begin.</p>
         </div>
 
+        <!-- Form -->
         <form id="verifyForm">
             <div class="mb-4">
                 <label for="shopeeId" class="block mb-2 text-sm font-medium text-slate-700" data-translate="shopee_id_label">Shopee Order ID</label>
@@ -44,20 +47,21 @@
             </button>
         </form>
         
+        <!-- Response message -->
         <div id="responseMessage" class="mt-6 text-center text-sm font-medium p-4 rounded-lg hidden" aria-live="polite"></div>
     </div>
 
     <script>
-        // --- Configuration ---
-        const backendUrl = "https://havicbot-backend.onrender.com"; // <-- IMPORTANT: Change this to your actual backend URL
+        // --- Config ---
+        const backendUrl = "https://havicbot-backend.onrender.com";
 
-        // --- DOM Elements ---
+        // --- Elements ---
         const verifyForm = document.getElementById('verifyForm');
         const responseMessage = document.getElementById('responseMessage');
         const langSwitcher = document.getElementById('lang-switcher');
         const submitButton = document.getElementById('submitButton');
 
-        // --- Language Translation Setup ---
+        // --- Translations ---
         const translations = {
             en: {
                 title: 'Voucher Redemption',
@@ -71,9 +75,9 @@
                 verify_button: 'Verify Order',
                 verifying_button: 'Verifying...',
                 lang_switcher_text: 'Bahasa Melayu',
-                error_claimed: 'All vouchers for this order have already been claimed!',
+                error_claimed: 'All vouchers for this order have already been claimed.',
                 error_generic: 'Verification failed. Please check your Order ID.',
-                error_connection: 'Could not connect to the server. Please try again.'
+                error_server: 'Could not connect to the server. Please try again.'
             },
             ms: {
                 title: 'Penebusan Baucar',
@@ -87,9 +91,9 @@
                 verify_button: 'Sahkan Pesanan',
                 verifying_button: 'Mengesahkan...',
                 lang_switcher_text: 'English',
-                error_claimed: 'Semua baucar untuk pesanan ini telah ditebus!',
+                error_claimed: 'Semua baucar untuk pesanan ini telah ditebus.',
                 error_generic: 'Pengesahan gagal. Sila semak ID Pesanan anda.',
-                error_connection: 'Tidak dapat menyambung ke pelayan. Sila cuba lagi.'
+                error_server: 'Tidak dapat menyambung ke pelayan. Sila cuba lagi.'
             }
         };
 
@@ -115,11 +119,16 @@
             setLanguage(newLang);
         });
 
-        // --- Helper Function to show messages ---
-        function showMessage(messageKey, isError = true) {
-            responseMessage.textContent = translations[currentLang][messageKey];
-            const bgColor = isError ? 'bg-red-100' : 'bg-yellow-100';
-            const textColor = isError ? 'text-red-800' : 'text-yellow-800';
+        function showMessage(type, defaultMessage) {
+            const messageKey = `error_${type}`;
+            const msg = translations[currentLang][messageKey] || defaultMessage;
+            
+            // Use yellow for "claimed" warning, red for other errors
+            const isWarning = type === 'claimed';
+            const bgColor = isWarning ? 'bg-yellow-100' : 'bg-red-100';
+            const textColor = isWarning ? 'text-yellow-800' : 'text-red-800';
+
+            responseMessage.textContent = msg;
             responseMessage.className = `mt-6 text-center text-sm font-medium p-4 rounded-lg ${bgColor} ${textColor}`;
             responseMessage.classList.remove('hidden');
         }
@@ -129,13 +138,12 @@
             submitButton.disabled = false;
         }
 
-        // --- Form Submission with Verification ---
-        verifyForm.addEventListener('submit', async function(event) {
+        verifyForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const shopeeId = document.getElementById('shopeeId').value.trim();
-            
+
             if (!shopeeId) {
-                showMessage('error_generic');
+                showMessage('generic', 'Please enter an Order ID.');
                 return;
             }
 
@@ -147,36 +155,32 @@
                 const response = await fetch(`${backendUrl}/verify-order`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shopeeId: shopeeId })
+                    body: JSON.stringify({ shopeeId })
                 });
 
-                const result = await response.json();
-
                 if (response.ok) {
-                    // Success: Redirect to the redemption page
+                    // Success (status 200-299) -> redirect
                     const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
                     window.location.href = absoluteUrl.href;
                 } else {
-                    // Handle specific errors from the server
-                    if (result.status === 'claimed') {
-                        showMessage('error_claimed', false); // Show as a notice, not an error
-                    } else {
-                        showMessage('error_generic');
+                    // Handle specific errors based on status code
+                    if (response.status === 409) { // 409 Conflict for already claimed
+                        showMessage('claimed', 'Order already claimed.');
+                    } else { // All other errors (404, 500, etc.)
+                        showMessage('generic', 'Verification failed.');
                     }
                     resetFormState();
                 }
-            } catch (error) {
-                console.error('Fetch Error:', error);
-                showMessage('error_connection');
+            } catch (err) {
+                console.error('Fetch Error:', err);
+                showMessage('server', 'Could not connect to server.');
                 resetFormState();
             }
         });
 
-        // Initialize with saved language or default to English
         const savedLang = localStorage.getItem('preferredLanguage') || 'en';
         setLanguage(savedLang);
     </script>
-
 </body>
 </html>
 
