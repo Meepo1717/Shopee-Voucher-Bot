@@ -10,7 +10,7 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
 
     <div class="absolute top-4 right-4">
         <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
@@ -18,29 +18,28 @@
         </button>
     </div>
 
-    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div class="text-center">
-            <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color: #EE4D2D;">Voucher Redemption</h1>
-            <p class="text-gray-500 mb-6" data-translate="subtitle">Enter your details to begin.</p>
+            <h1 class="text-2xl font-bold mb-2 text-slate-800" data-translate="title">Voucher Redemption</h1>
+            <p class="text-slate-500 mb-6" data-translate="subtitle">Enter your Shopee Order ID to begin.</p>
         </div>
 
         <form id="verifyForm">
             <div class="mb-4">
-                <label for="shopeeId" class="block mb-2 text-sm font-medium text-gray-700" data-translate="shopee_id_label">Shopee Order ID</label>
-                <input type="text" id="shopeeId" name="shopeeId" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-3" data-translate-placeholder="shopee_id_placeholder" placeholder="e.g., 230605TYUQG5Y6" required>
+                <label for="shopeeId" class="block mb-2 text-sm font-medium text-slate-700" data-translate="shopee_id_label">Shopee Order ID</label>
+                <input type="text" id="shopeeId" name="shopeeId" class="bg-slate-50 border border-slate-300 text-slate-900 text-base rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-3" data-translate-placeholder="shopee_id_placeholder" placeholder="e.g., 230605TYUQG5Y6" required>
             </div>
 
-            <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 mb-6">
-                <h3 class="font-semibold text-gray-800 mb-2" data-translate="instructions_title">How to Find Your Order ID</h3>
+            <div class="bg-slate-50 p-4 rounded-lg text-sm text-slate-600 mb-6">
+                <h3 class="font-semibold text-slate-800 mb-2" data-translate="instructions_title">How to Find Your Order ID</h3>
                 <ol class="list-decimal list-inside space-y-1">
                     <li data-translate="instructions_step1">Open the Shopee app & go to <strong>My Purchases</strong>.</li>
-                    <li data-translate="instructions_step2">Tap the order and scroll to find the <strong>Order ID</strong>.</li>
-                    <li data-translate="instructions_step3">Copy the full Order ID.</li>
-                    <li data-translate="instructions_step4">Paste it above and submit.</li>
+                    <li data-translate="instructions_step2">Tap your order and find the <strong>Order ID</strong>.</li>
+                    <li data-translate="instructions_step3">Copy the full Order ID and paste it above.</li>
                 </ol>
             </div>
 
-            <button type="submit" id="submitButton" class="text-white bg-[#EE4D2D] hover:bg-[#d73410] focus:ring-4 focus:outline-none focus:ring-orange-300 font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="verify_button">
+            <button type="submit" id="submitButton" class="text-white bg-[#EE4D2D] hover:bg-[#d73410] focus:ring-4 focus:outline-none focus:ring-orange-300 font-medium rounded-lg text-base w-full px-5 py-3 text-center transition-colors" data-translate="verify_button">
                 Verify Order
             </button>
         </form>
@@ -49,6 +48,10 @@
     </div>
 
     <script>
+        // --- Configuration ---
+        const backendUrl = "https://your-live-backend-url.com"; // <-- IMPORTANT: Change this to your actual backend URL
+
+        // --- DOM Elements ---
         const verifyForm = document.getElementById('verifyForm');
         const responseMessage = document.getElementById('responseMessage');
         const langSwitcher = document.getElementById('lang-switcher');
@@ -58,31 +61,35 @@
         const translations = {
             en: {
                 title: 'Voucher Redemption',
-                subtitle: 'Enter your details to begin.',
+                subtitle: 'Enter your Shopee Order ID to begin.',
                 shopee_id_label: 'Shopee Order ID',
                 shopee_id_placeholder: 'e.g., 230605TYUQG5Y6',
                 instructions_title: 'How to Find Your Order ID',
                 instructions_step1: 'Open the Shopee app & go to <strong>My Purchases</strong>.',
-                instructions_step2: 'Tap the order and scroll to find the <strong>Order ID</strong>.',
-                instructions_step3: 'Copy the full Order ID.',
-                instructions_step4: 'Paste it above and submit.',
+                instructions_step2: 'Tap your order and find the <strong>Order ID</strong>.',
+                instructions_step3: 'Copy the full Order ID and paste it above.',
                 verify_button: 'Verify Order',
                 verifying_button: 'Verifying...',
-                lang_switcher_text: 'Bahasa Melayu'
+                lang_switcher_text: 'Bahasa Melayu',
+                error_claimed: 'All vouchers for this order have already been claimed!',
+                error_generic: 'Verification failed. Please check your Order ID.',
+                error_connection: 'Could not connect to the server. Please try again.'
             },
             ms: {
                 title: 'Penebusan Baucar',
-                subtitle: 'Masukkan butiran anda untuk bermula.',
+                subtitle: 'Masukkan ID Pesanan Shopee anda untuk bermula.',
                 shopee_id_label: 'ID Pesanan Shopee',
                 shopee_id_placeholder: 'cth., 230605TYUQG5Y6',
                 instructions_title: 'Cara Mencari ID Pesanan Anda',
                 instructions_step1: 'Buka aplikasi Shopee & pergi ke <strong>Belian Saya</strong>.',
-                instructions_step2: 'Ketik pada pesanan dan skrol untuk mencari <strong>ID Pesanan</strong>.',
-                instructions_step3: 'Salin ID Pesanan penuh.',
-                instructions_step4: 'Tampal di atas dan hantar.',
+                instructions_step2: 'Ketik pada pesanan anda dan cari <strong>ID Pesanan</strong>.',
+                instructions_step3: 'Salin ID Pesanan penuh dan tampalkannya di atas.',
                 verify_button: 'Sahkan Pesanan',
                 verifying_button: 'Mengesahkan...',
-                lang_switcher_text: 'English'
+                lang_switcher_text: 'English',
+                error_claimed: 'Semua baucar untuk pesanan ini telah ditebus!',
+                error_generic: 'Pengesahan gagal. Sila semak ID Pesanan anda.',
+                error_connection: 'Tidak dapat menyambung ke pelayan. Sila cuba lagi.'
             }
         };
 
@@ -90,7 +97,7 @@
 
         function setLanguage(lang) {
             currentLang = lang;
-            localStorage.setItem('preferredLanguage', lang); // Persist language choice
+            localStorage.setItem('preferredLanguage', lang);
             document.documentElement.lang = lang;
             document.querySelectorAll('[data-translate]').forEach(el => {
                 const key = el.getAttribute('data-translate');
@@ -108,11 +115,16 @@
             setLanguage(newLang);
         });
 
-        // --- Helper Function to show errors ---
-        function handleFailure(message) {
-            responseMessage.textContent = message;
-            responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
+        // --- Helper Function to show messages ---
+        function showMessage(messageKey, isError = true) {
+            responseMessage.textContent = translations[currentLang][messageKey];
+            const bgColor = isError ? 'bg-red-100' : 'bg-yellow-100';
+            const textColor = isError ? 'text-red-800' : 'text-yellow-800';
+            responseMessage.className = `mt-6 text-center text-sm font-medium p-4 rounded-lg ${bgColor} ${textColor}`;
             responseMessage.classList.remove('hidden');
+        }
+
+        function resetFormState() {
             submitButton.textContent = translations[currentLang].verify_button;
             submitButton.disabled = false;
         }
@@ -121,10 +133,9 @@
         verifyForm.addEventListener('submit', async function(event) {
             event.preventDefault();
             const shopeeId = document.getElementById('shopeeId').value.trim();
-            const backendUrl = 'https://havicbot-backend.onrender.com';
-
+            
             if (!shopeeId) {
-                handleFailure('Please enter an Order ID.');
+                showMessage('error_generic');
                 return;
             }
 
@@ -139,16 +150,25 @@
                     body: JSON.stringify({ shopeeId: shopeeId })
                 });
 
+                const result = await response.json();
+
                 if (response.ok) {
+                    // Success: Redirect to the redemption page
                     const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
                     window.location.href = absoluteUrl.href;
                 } else {
-                    const result = await response.json();
-                    handleFailure(result.message || 'Verification failed. Please check your Order ID.');
+                    // Handle specific errors from the server
+                    if (result.status === 'claimed') {
+                        showMessage('error_claimed', false); // Show as a notice, not an error
+                    } else {
+                        showMessage('error_generic');
+                    }
+                    resetFormState();
                 }
             } catch (error) {
                 console.error('Fetch Error:', error);
-                handleFailure('Could not connect to the server. Please check your connection and try again.');
+                showMessage('error_connection');
+                resetFormState();
             }
         });
 
@@ -159,3 +179,4 @@
 
 </body>
 </html>
+
