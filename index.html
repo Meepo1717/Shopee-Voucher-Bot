@@ -55,8 +55,10 @@
             messageArea.innerHTML = `<p class="text-blue-500">Verifying order, please wait...</p>`;
 
             try {
-                // --- Communicate with backend server ---
-                const response = await fetch('http://localhost:3000/verify-order', {
+                // --- Communicate with your LIVE backend server on Render ---
+                const serverUrl = 'https://shopee-order-verification.onrender.com'; 
+
+                const response = await fetch(`${serverUrl}/verify-order`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -84,3 +86,4 @@
     </script>
 </body>
 </html>
+
