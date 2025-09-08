@@ -12,13 +12,15 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
+    <!-- Language Switcher -->
     <div class="absolute top-4 right-4">
         <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
             Bahasa Melayu
         </button>
     </div>
 
-    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+    <!-- Card -->
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
         <div class="text-center">
             <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color: #EE4D2D;">Voucher Redemption</h1>
             <p class="text-gray-500 mb-6" data-translate="subtitle">Enter your details to begin.</p>
@@ -27,20 +29,10 @@
         <form id="verifyForm">
             <div class="mb-4">
                 <label for="shopeeId" class="block mb-2 text-sm font-medium text-gray-700" data-translate="shopee_id_label">Shopee Order ID</label>
-                <input type="text" id="shopeeId" name="shopeeId" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-3" data-translate-placeholder="shopee_id_placeholder" placeholder="e.g., 230605TYUQG5Y6" required>
+                <input type="text" id="shopeeId" name="shopeeId" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-3" placeholder="e.g., 230605TYUQG5Y6" required>
             </div>
 
-            <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 mb-6">
-                <h3 class="font-semibold text-gray-800 mb-2" data-translate="instructions_title">How to Find Your Order ID</h3>
-                <ol class="list-decimal list-inside space-y-1">
-                    <li data-translate="instructions_step1">Open the Shopee app & go to <strong>My Purchases</strong>.</li>
-                    <li data-translate="instructions_step2">Tap the order and scroll to find the <strong>Order ID</strong>.</li>
-                    <li data-translate="instructions_step3">Copy the full Order ID.</li>
-                    <li data-translate="instructions_step4">Paste it above and submit.</li>
-                </ol>
-            </div>
-
-            <button type="submit" id="submitButton" class="text-white bg-[#EE4D2D] hover:bg-[#d73410] focus:ring-4 focus:outline-none focus:ring-orange-300 font-medium rounded-lg text-sm w-full px-5 py-3 text-center" data-translate="verify_button">
+            <button type="submit" id="submitButton" class="text-white bg-[#EE4D2D] hover:bg-[#d73410] focus:ring-4 focus:outline-none focus:ring-orange-300 font-medium rounded-lg text-sm w-full px-5 py-3 text-center">
                 Verify Order
             </button>
         </form>
@@ -51,109 +43,69 @@
     <script>
         const verifyForm = document.getElementById('verifyForm');
         const responseMessage = document.getElementById('responseMessage');
-        const langSwitcher = document.getElementById('lang-switcher');
         const submitButton = document.getElementById('submitButton');
+        const backendUrl = "https://havicbot-backend.onrender.com";
 
-        // --- Language Translation Setup ---
-        const translations = {
-            en: {
-                title: 'Voucher Redemption',
-                subtitle: 'Enter your details to begin.',
-                shopee_id_label: 'Shopee Order ID',
-                shopee_id_placeholder: 'e.g., 230605TYUQG5Y6',
-                instructions_title: 'How to Find Your Order ID',
-                instructions_step1: 'Open the Shopee app & go to <strong>My Purchases</strong>.',
-                instructions_step2: 'Tap the order and scroll to find the <strong>Order ID</strong>.',
-                instructions_step3: 'Copy the full Order ID.',
-                instructions_step4: 'Paste it above and submit.',
-                verify_button: 'Verify Order',
-                verifying_button: 'Verifying...',
-                lang_switcher_text: 'Bahasa Melayu'
-            },
-            ms: {
-                title: 'Penebusan Baucar',
-                subtitle: 'Masukkan butiran anda untuk bermula.',
-                shopee_id_label: 'ID Pesanan Shopee',
-                shopee_id_placeholder: 'cth., 230605TYUQG5Y6',
-                instructions_title: 'Cara Mencari ID Pesanan Anda',
-                instructions_step1: 'Buka aplikasi Shopee & pergi ke <strong>Belian Saya</strong>.',
-                instructions_step2: 'Ketik pada pesanan dan skrol untuk mencari <strong>ID Pesanan</strong>.',
-                instructions_step3: 'Salin ID Pesanan penuh.',
-                instructions_step4: 'Tampal di atas dan hantar.',
-                verify_button: 'Sahkan Pesanan',
-                verifying_button: 'Mengesahkan...',
-                lang_switcher_text: 'English'
-            }
-        };
-
-        let currentLang = 'en';
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            localStorage.setItem('preferredLanguage', lang); 
-            document.documentElement.lang = lang;
-            document.querySelectorAll('[data-translate]').forEach(el => {
-                const key = el.getAttribute('data-translate');
-                el.innerHTML = translations[lang][key];
-            });
-            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-translate-placeholder');
-                el.placeholder = translations[lang][key];
-            });
-            langSwitcher.textContent = translations[lang].lang_switcher_text;
-        }
-
-        langSwitcher.addEventListener('click', () => {
-            const newLang = currentLang === 'en' ? 'ms' : 'en';
-            setLanguage(newLang);
-        });
-
-        function handleFailure(message) {
-            responseMessage.textContent = message;
-            responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
-            responseMessage.classList.remove('hidden');
-            submitButton.textContent = translations[currentLang].verify_button;
+        function showError(msg) {
+            responseMessage.textContent = msg;
+            responseMessage.className = "mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800";
+            responseMessage.classList.remove("hidden");
             submitButton.disabled = false;
+            submitButton.textContent = "Verify Order";
         }
 
-        // --- Form Submission ---
         verifyForm.addEventListener('submit', async function(event) {
             event.preventDefault();
             const shopeeId = document.getElementById('shopeeId').value.trim();
-            const backendUrl = 'https://havicbot-backend.onrender.com';
 
             if (!shopeeId) {
-                handleFailure('Please enter an Order ID.');
+                showError("Please enter Order ID.");
                 return;
             }
 
-            submitButton.textContent = translations[currentLang].verifying_button;
+            submitButton.textContent = "Verifying...";
             submitButton.disabled = true;
-            responseMessage.classList.add('hidden');
+            responseMessage.classList.add("hidden");
 
             try {
-                const response = await fetch(`${backendUrl}/verify-order`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                // Step 1: Verify order
+                const verifyResponse = await fetch(`${backendUrl}/verify-order`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ shopeeId })
                 });
+                const verifyResult = await verifyResponse.json();
 
-                if (response.ok) {
-                    // ✅ FIX: Redirect to otp.html, not order-details.html
-                    const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
-                    window.location.href = absoluteUrl.href;
-                } else {
-                    const result = await response.json();
-                    handleFailure(result.message || 'Verification failed. Please check your Order ID.');
+                if (!verifyResponse.ok || !verifyResult.success) {
+                    showError(verifyResult.message || "Order verification failed.");
+                    return;
                 }
+
+                // Step 2: Fetch order details
+                const detailsResponse = await fetch(`${backendUrl}/get-order-details`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ shopeeId })
+                });
+                const detailsResult = await detailsResponse.json();
+
+                if (!detailsResponse.ok || !detailsResult.success) {
+                    showError(detailsResult.message || "Failed to fetch order details.");
+                    return;
+                }
+
+                // Step 3: Redirect to otp.html with details
+                const query = new URLSearchParams({
+                    orderId: shopeeId,
+                    items: JSON.stringify(detailsResult.items)
+                }).toString();
+
+                window.location.href = `otp.html?${query}`;
             } catch (error) {
-                console.error('Fetch Error:', error);
-                handleFailure('Could not connect to the server. Please check your connection and try again.');
+                console.error("Error verifying order:", error);
+                showError("Something went wrong. Please try again.");
             }
         });
-
-        const savedLang = localStorage.getItem('preferredLanguage') || 'en';
-        setLanguage(savedLang);
     </script>
 
 </body>
