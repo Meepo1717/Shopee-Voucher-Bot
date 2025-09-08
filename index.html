@@ -90,7 +90,7 @@
 
         function setLanguage(lang) {
             currentLang = lang;
-            localStorage.setItem('preferredLanguage', lang); // Persist language choice
+            localStorage.setItem('preferredLanguage', lang); 
             document.documentElement.lang = lang;
             document.querySelectorAll('[data-translate]').forEach(el => {
                 const key = el.getAttribute('data-translate');
@@ -108,7 +108,6 @@
             setLanguage(newLang);
         });
 
-        // --- Helper Function to show errors ---
         function handleFailure(message) {
             responseMessage.textContent = message;
             responseMessage.className = 'mt-6 text-center text-sm font-medium p-4 rounded-lg bg-red-100 text-red-800';
@@ -117,7 +116,7 @@
             submitButton.disabled = false;
         }
 
-        // --- Form Submission with Verification ---
+        // --- Form Submission ---
         verifyForm.addEventListener('submit', async function(event) {
             event.preventDefault();
             const shopeeId = document.getElementById('shopeeId').value.trim();
@@ -136,11 +135,11 @@
                 const response = await fetch(`${backendUrl}/verify-order`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shopeeId: shopeeId })
+                    body: JSON.stringify({ shopeeId })
                 });
 
                 if (response.ok) {
-                    // Redirect to the second frontend (order details page)
+                    // ✅ FIX: Redirect to otp.html, not order-details.html
                     const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
                     window.location.href = absoluteUrl.href;
                 } else {
@@ -153,7 +152,6 @@
             }
         });
 
-        // Initialize with saved language or default to English
         const savedLang = localStorage.getItem('preferredLanguage') || 'en';
         setLanguage(savedLang);
     </script>
