@@ -22,8 +22,8 @@
 
         <!-- Display Boxes -->
         <div class="mb-4 text-left">
-            <label class="block text-sm font-medium text-gray-700" data-translate="order_id_label">Your Order ID & Products</label>
-            <div id="order-id-box" class="mt-1 text-sm font-semibold bg-gray-50 border border-gray-300 p-3 rounded-lg text-gray-900 text-left"></div>
+            <label class="block text-sm font-medium text-gray-700" data-translate="order_id_label">Your Order ID & Product</label>
+            <div id="order-id-box" class="mt-1 text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
         </div>
         <div class="mb-4 text-left">
             <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
@@ -86,84 +86,41 @@
     </div>
 
     <script>
-        const statusText = document.getElementById('status-text');
-        const phoneNumberBox = document.getElementById('phone-number-box');
-        const otpBox = document.getElementById('otp-box');
-        const langSwitcher = document.getElementById('lang-switcher');
-        const copyPhoneBtn = document.getElementById('copy-phone-btn');
-        const copyOtpBtn = document.getElementById('copy-otp-btn');
-        const orderIdBox = document.getElementById('order-id-box');
-        const timerContainer = document.getElementById('timer-container');
-        const timerDisplay = document.getElementById('timer');
-        const purchaseBtn = document.getElementById('purchase-btn');
-        const retryModal = document.getElementById('retry-modal');
-        const retryModalYesBtn = document.getElementById('retry-modal-yes-btn');
-        const retryModalNoBtn = document.getElementById('retry-modal-no-btn');
-
-        const translations = { /* unchanged from your file */ };
-
-        let currentLang = 'en';
-        let otpCheckInterval;
-        let countdownInterval;
-        let currentProviderDetails = {};
-        const backendUrl = 'https://havicbot-backend.onrender.com';
-
-        function setLanguage(lang, isInitial = false) { /* unchanged */ }
-        function T(key) { return translations[currentLang][key] || key; }
-        function copyToClipboard(text, button) { /* unchanged */ }
+        // --- Utility: Get URL params
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(param);
         }
-        function startCountdown(duration) { /* unchanged */ }
-
-        // --- New: Load Order Details ---
-        async function loadOrderDetails(orderId) {
-            try {
-                const response = await fetch(`${backendUrl}/get-order-details`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shopeeId: orderId })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message);
-
-                orderIdBox.innerHTML = `<p class="mb-2"><strong>Order:</strong> ${orderId}</p>`;
-
-                const productList = document.createElement('ul');
-                productList.className = "space-y-2";
-                result.items.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = "p-2 bg-gray-50 border rounded-lg text-sm";
-                    li.innerHTML = `<strong>${item.name}</strong> × ${item.quantity}`;
-                    productList.appendChild(li);
-                });
-
-                orderIdBox.appendChild(productList);
-            } catch (error) {
-                orderIdBox.textContent = `Failed to load order details: ${error.message}`;
-            }
-        }
-
-        async function getPhoneNumber(isRetry = false) { /* unchanged */ }
-        async function checkForOtp(provider, providerOrderId) { /* unchanged */ }
-
-        purchaseBtn.addEventListener('click', function(event) { if (purchaseBtn.classList.contains('disabled-link')) event.preventDefault(); });
-        langSwitcher.addEventListener('click', () => { const newLang = currentLang === 'en' ? 'ms' : 'en'; setLanguage(newLang); });
-        retryModalYesBtn.addEventListener('click', () => { retryModal.classList.add('hidden'); getPhoneNumber(true); });
-        retryModalNoBtn.addEventListener('click', () => { retryModal.classList.add('hidden'); window.location.href = './index.html'; });
-        copyPhoneBtn.addEventListener('click', () => { let phoneNumber = phoneNumberBox.textContent.trim(); if (phoneNumber.startsWith('+60')) phoneNumber = phoneNumber.substring(3); if (phoneNumber) copyToClipboard(phoneNumber, copyPhoneBtn); });
-        copyOtpBtn.addEventListener('click', () => { if (otpBox.textContent.trim() !== '') copyToClipboard(otpBox.textContent, copyOtpBtn); });
 
         window.onload = () => {
             const orderId = getQueryParam('orderId');
-            setLanguage('en', true);
+            const itemName = getQueryParam('itemName');
+            const quantity = getQueryParam('quantity');
+            const productKey = getQueryParam('product');
 
-            // Load order details (NEW)
-            loadOrderDetails(orderId);
+            // fallback product display names
+            const productDisplayNames = {
+                'zus_coffee': 'Zus Coffee',
+                'gigi_coffee': 'Gigi Coffee',
+                'tealive': 'Tealive',
+                'kfc': 'KFC',
+                'chagee': 'Chagee',
+                'kenangan_coffee': 'Kenangan Coffee',
+                'shein': 'Shein',
+                'luckin_coffee': 'Luckin Coffee',
+                'marrybrown': 'Marrybrown'
+            };
 
-            // Start OTP flow
-            getPhoneNumber();
+            const productName = productDisplayNames[productKey] || productKey;
+
+            if (itemName) {
+                document.getElementById('order-id-box').textContent = `${orderId} (${itemName} x${quantity})`;
+            } else {
+                document.getElementById('order-id-box').textContent = `${orderId} (${productName})`;
+            }
+
+            // existing logic to request phone number...
+            // getPhoneNumber();
         };
     </script>
 
