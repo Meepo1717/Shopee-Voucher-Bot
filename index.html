@@ -140,7 +140,8 @@
                 });
 
                 if (response.ok) {
-                    const absoluteUrl = new URL(`otp.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
+                    // Redirect to the second frontend (order details page)
+                    const absoluteUrl = new URL(`order-details.html?orderId=${encodeURIComponent(shopeeId)}`, window.location.href);
                     window.location.href = absoluteUrl.href;
                 } else {
                     const result = await response.json();
