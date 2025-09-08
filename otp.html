@@ -1,223 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voucher Redemption - HavicBot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
-<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 py-10">
 
-  <div class="absolute top-4 right-4">
-    <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
-      Bahasa Melayu
-    </button>
-  </div>
-
-  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
-    <h1 class="text-2xl font-bold mb-4 text-center text-slate-800" data-translate="title">Voucher Redemption</h1>
-    <div class="text-center mb-6">
-      <p class="text-xs text-slate-500" data-translate="order_id_label">Order ID:</p>
-      <p id="order-id-display" class="text-sm bg-slate-100 text-slate-700 rounded-md p-1.5 mt-1 break-all"></p>
-    </div>
-
-    <div class="bg-slate-50 border border-slate-200 text-slate-700 p-3.5 mb-6 rounded-lg" role="alert">
-      <p class="font-bold text-sm" data-translate="tips_title">Instructions</p>
-      <ol class="mt-2 list-decimal list-inside text-sm space-y-2">
-        <li data-translate="tip_1">The number generated is to <strong>Create New Account/Sign-Up</strong>. Do not use to login.</li>
-        <li data-translate="tip_2">Have more than one voucher? Please redeem them <strong>one at a time</strong>.</li>
-        <li data-translate="tip_3">The OTP code will be generated within <strong>2-10 minutes</strong>. Thanks for waiting!</li>
-        <li data-translate="tip_4"><strong>DO NOT PRESS RESEND OTP.</strong> Kindly just wait for the OTP to arrive here.</li>
-        <li data-translate="tip_5">If asked for an email, please use a dummy email. E.g : <strong>test123@gmail.com</strong></li>
-      </ol>
-    </div>
-
-    <div id="order-items" class="space-y-4">
-      <div id="loading-spinner" class="flex justify-center items-center p-4">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-700"></div>
-      </div>
-    </div>
-
-    <div class="mt-6 pt-6 border-t border-slate-200">
-      <a href="https://shopee.com.my/shop/111783206" target="_blank" rel="noopener noreferrer" id="visit-store-btn" class="w-full block text-center bg-[#EE4D2D] hover:bg-[#d73410] text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-translate="visit_store_button">
-        Visit Our Shopee Store
-      </a>
-    </div>
-  </div>
-
-  <script>
-    const backendUrl = "https://your-live-backend-url.com"; // <-- Change this to your backend URL
-    const orderIdDisplay = document.getElementById('order-id-display');
-    const langSwitcher = document.getElementById('lang-switcher');
-    const orderItemsContainer = document.getElementById('order-items');
-    const loadingSpinner = document.getElementById('loading-spinner');
-
-    let activeTimers = {};
-    let totalVouchers = 0;
-    let redeemedVouchers = 0;
-    const urlParams = new URLSearchParams(window.location.search);
-    const shopeeId = urlParams.get("orderId");
-    orderIdDisplay.textContent = shopeeId || "N/A";
-
-    const translations = {
-      en: {
-        title: 'Voucher Redemption', order_id_label: 'Order ID:', tips_title: 'Instructions',
-        redeem_button: 'Redeem', requesting_phone_button: 'Requesting...', waiting_otp_button: 'Waiting for OTP...', redeemed_button: 'Redeemed',
-        visit_store_button: 'Visit Our Shopee Store',
-        phone_label: 'Phone Number:', otp_label: 'OTP:', failed_phone_message: 'Failed to get phone number.',
-        failed_load_items: 'Failed to load vouchers.', error_load_details: 'Error loading vouchers.'
-      },
-      ms: {
-        title: 'Penebusan Baucar', order_id_label: 'ID Pesanan:', tips_title: 'Arahan',
-        redeem_button: 'Tebus', requesting_phone_button: 'Meminta...', waiting_otp_button: 'Menunggu OTP...', redeemed_button: 'Ditebus',
-        visit_store_button: 'Lawati Kedai Shopee Kami',
-        phone_label: 'Nombor Telefon:', otp_label: 'OTP:', failed_phone_message: 'Gagal mendapatkan nombor telefon.',
-        failed_load_items: 'Gagal memuatkan baucar.', error_load_details: 'Ralat memuatkan baucar.'
-      }
-    };
-
-    let currentLang = 'en';
-    function setLanguage(lang) {
-      currentLang = lang;
-      localStorage.setItem('preferredLanguage', lang);
-      document.documentElement.lang = lang;
-      document.querySelectorAll('[data-translate]').forEach(el => {
-        const key = el.getAttribute('data-translate');
-        if (translations[lang][key]) el.innerHTML = translations[lang][key];
-      });
-      langSwitcher.textContent = lang === 'en' ? 'Bahasa Melayu' : 'English';
-    }
-
-    langSwitcher.addEventListener('click', () => {
-      const newLang = currentLang === 'en' ? 'ms' : 'en';
-      setLanguage(newLang);
-    });
-
-    async function fetchOrderItems() {
-      try {
-        const res = await fetch(`${backendUrl}/verify-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId })
-        });
-        const data = await res.json();
-        loadingSpinner.classList.add("hidden");
-
-        if (!res.ok || !data.items) {
-          orderItemsContainer.innerHTML = `<p class="text-center text-red-600">${translations[currentLang].failed_load_items}</p>`;
-          return;
-        }
-
-        orderItemsContainer.innerHTML = "";
-        totalVouchers = data.items.length;
-        if (totalVouchers === 0) {
-          orderItemsContainer.innerHTML = `<p class="text-center text-slate-500">No redeemable vouchers found for this order.</p>`;
-          return;
-        }
-
-        data.items.forEach((item, index) => renderVoucher(item, index));
-      } catch (err) {
-        orderItemsContainer.innerHTML = `<p class="text-center text-red-600">${translations[currentLang].error_load_details}</p>`;
-        loadingSpinner.classList.add("hidden");
-      }
-    }
-
-    function renderVoucher(item, index) {
-      const card = document.createElement("div");
-      card.className = "bg-slate-50 rounded-lg p-4 shadow-sm border border-slate-200";
-      card.innerHTML = `
-        <div class="flex justify-between items-center">
-          <h2 class="font-semibold text-slate-800 text-base">${item.item_name}</h2>
-          <button id="redeem-${index}" class="text-sm bg-[#EE4D2D] hover:bg-[#d73410] text-white py-1.5 px-4 rounded-md transition-colors font-semibold shadow">
-            ${translations[currentLang].redeem_button}
-          </button>
+    <main class="max-w-4xl mx-auto">
+        <div id="order-container" class="bg-white rounded-lg shadow-lg p-8">
+            <!-- Content will be injected by JavaScript -->
         </div>
-        <div id="info-${index}" class="hidden mt-3 pt-3 border-t border-slate-200 space-y-2">
-          <p class="text-xs text-gray-500" id="phone-${index}"></p>
-          <p class="text-xs text-gray-700 font-semibold">OTP: <span id="otp-${index}">waiting...</span></p>
+        <div class="text-center mt-6">
+            <a href="index.html" class="text-indigo-600 hover:text-indigo-800 font-medium">← Verify another order</a>
         </div>
-      `;
-      orderItemsContainer.appendChild(card);
+    </main>
 
-      document.getElementById(`redeem-${index}`).addEventListener("click", () => handleRedemption(index, item.productKey, item.itemIndex));
-    }
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const orderContainer = document.getElementById('order-container');
+            
+            // Retrieve the data from sessionStorage
+            const orderDataString = sessionStorage.getItem('shopeeOrderDetails');
 
-    async function handleRedemption(index, productKey, itemIndex) {
-      const btn = document.getElementById(`redeem-${index}`);
-      const infoBox = document.getElementById(`info-${index}`);
-      const phoneEl = document.getElementById(`phone-${index}`);
-      const otpEl = document.getElementById(`otp-${index}`);
-
-      btn.disabled = true;
-      btn.textContent = translations[currentLang].requesting_phone_button;
-      infoBox.classList.remove("hidden");
-
-      try {
-        const res = await fetch(`${backendUrl}/get-phone`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId, productKey, itemIndex })
-        });
-        const data = await res.json();
-
-        if (!res.ok) throw new Error(data.message || translations[currentLang].failed_phone_message);
-
-        phoneEl.textContent = `${translations[currentLang].phone_label} ${data.phoneNumber}`;
-        btn.textContent = translations[currentLang].waiting_otp_button;
-        otpEl.textContent = "⏳ polling...";
-
-        pollForOtp(index, productKey, itemIndex, data.providerOrderId);
-      } catch (err) {
-        phoneEl.textContent = `❌ ${err.message}`;
-        btn.disabled = false;
-        btn.textContent = translations[currentLang].redeem_button;
-      }
-    }
-
-    function pollForOtp(index, productKey, itemIndex, providerOrderId) {
-      const otpEl = document.getElementById(`otp-${index}`);
-      const btn = document.getElementById(`redeem-${index}`);
-
-      if (activeTimers[index]) clearInterval(activeTimers[index]);
-
-      activeTimers[index] = setInterval(async () => {
-        try {
-          const res = await fetch(`${backendUrl}/check-otp`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ providerOrderId, shopeeId, productKey, itemIndex })
-          });
-          const data = await res.json();
-
-          if (res.ok && data.otp) {
-            clearInterval(activeTimers[index]);
-            otpEl.textContent = `✅ ${data.otp}`;
-            btn.textContent = `${translations[currentLang].redeemed_button} ✔`;
-            btn.classList.replace("bg-[#EE4D2D]", "bg-green-600");
-            btn.disabled = true;
-
-            redeemedVouchers++;
-            if (redeemedVouchers === totalVouchers) {
-              await fetch(`${backendUrl}/confirm-shipment`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ shopeeId })
-              });
+            if (!orderDataString) {
+                orderContainer.innerHTML = `
+                    <div class="text-center">
+                        <h2 class="text-xl font-bold text-red-600">No Order Data Found</h2>
+                        <p class="text-gray-500 mt-2">Please go back and verify an order first.</p>
+                    </div>
+                `;
+                return;
             }
-          }
-        } catch (err) {
-          console.error("Polling error:", err);
-        }
-      }, 5000); // check every 5s
-    }
 
-    const savedLang = localStorage.getItem('preferredLanguage') || 'en';
-    setLanguage(savedLang);
-    fetchOrderItems();
-  </script>
+            try {
+                const orderData = JSON.parse(orderDataString);
+                
+                // --- Build the HTML to display the order details ---
+                let itemsHtml = '';
+                if (orderData.item_list && orderData.item_list.length > 0) {
+                    orderData.item_list.forEach(item => {
+                        itemsHtml += `
+                            <li class="flex items-center py-4 px-2 border-b border-gray-200 last:border-b-0">
+                                <div class="w-16 h-16 bg-gray-200 rounded-md flex-shrink-0 mr-4">
+                                    <!-- You can display item.image_info.image_url if available -->
+                                    <img src="${item.image_info?.image_url || 'https://placehold.co/64x64/e2e8f0/adb5bd?text=N/A'}" alt="${item.item_name}" class="w-full h-full object-cover rounded-md">
+                                </div>
+                                <div class="flex-grow">
+                                    <h4 class="font-semibold text-gray-800">${item.item_name}</h4>
+                                    <p class="text-sm text-gray-500">SKU: ${item.item_sku || 'N/A'}</p>
+                                    ${item.model_name ? `<p class="text-sm text-gray-500">Variation: ${item.model_name}</p>` : ''}
+                                </div>
+                                <div class="text-right ml-4">
+                                     <p class="text-sm text-gray-500">x ${item.model_quantity_purchased}</p>
+                                </div>
+                            </li>
+                        `;
+                    });
+                } else {
+                    itemsHtml = '<li class="text-center py-4 text-gray-500">No items found in this order.</li>';
+                }
+
+                orderContainer.innerHTML = `
+                    <div class="pb-6 border-b border-gray-200">
+                        <h1 class="text-2xl font-bold text-gray-800">Order Details</h1>
+                        <p class="text-gray-600 mt-2">Order SN: <span class="font-mono bg-gray-100 p-1 rounded">${orderData.order_sn}</span></p>
+                    </div>
+                    <div class="mt-6">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Items in this Order</h3>
+                        <ul class="divide-y divide-gray-200">${itemsHtml}</ul>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error("Failed to parse order data:", error);
+                orderContainer.innerHTML = `
+                    <div class="text-center">
+                        <h2 class="text-xl font-bold text-red-600">Error Displaying Order</h2>
+                        <p class="text-gray-500 mt-2">The order data could not be read correctly.</p>
+                    </div>
+                `;
+            }
+        });
+    </script>
 </body>
 </html>
