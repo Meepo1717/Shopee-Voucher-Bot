@@ -3,90 +3,407 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details</title>
+    <title>Get Your OTP - HavicBot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
 </head>
-<body class="bg-gray-100 py-10">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <main class="max-w-4xl mx-auto">
-        <div id="order-container" class="bg-white rounded-lg shadow-lg p-8">
-            <!-- Content will be injected by JavaScript -->
+    <!-- Language Switcher Button -->
+    <div class="absolute top-4 right-4">
+        <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+            Bahasa Melayu
+        </button>
+    </div>
+
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 text-center">
+        <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color: #EE4D2D;">Voucher Redemption</h1>
+        <p class="text-blue-600 mb-6" id="status-text" data-translate="status_requesting">Requesting a phone number for you...</p>
+
+        <!-- Display Boxes -->
+        <div class="mb-4 text-left">
+            <label class="block text-sm font-medium text-gray-700" data-translate="order_id_label">Your Order ID & Product</label>
+            <div id="order-id-box" class="mt-1 text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
         </div>
-        <div class="text-center mt-6">
-            <a href="index.html" class="text-indigo-600 hover:text-indigo-800 font-medium">← Verify another order</a>
+        <div class="mb-4 text-left">
+            <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
+            <div class="flex items-center gap-2 mt-1">
+                <div id="phone-number-box" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
+                <button id="copy-phone-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors" data-translate-title="copy_button_title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+            </div>
         </div>
-    </main>
+        <div class="mb-2 text-left">
+            <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
+            <div class="flex items-center gap-2 mt-1">
+                <div id="otp-box" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
+                <button id="copy-otp-btn" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors" data-translate-title="copy_button_title">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-300 p-4 rounded-lg text-xs text-gray-600 my-6 text-left">
+             <h3 class="font-semibold text-gray-800 mb-2" data-translate="instructions_title">Instructions to claim voucher</h3>
+             <ol class="list-decimal list-inside space-y-1">
+                 <li data-translate="instructions_step1">Make sure you have log out of the app.</li>
+                 <li data-translate="instructions_step2">Press Sign Up/Create New Account, insert the phone number generated above, in the app.</li>
+                 <li data-translate="instructions_step3">If an app requests e-mail during sign-up/creating an account, please insert in a fake e-mail (eg: test123@gmail.com)</li>
+                 <li data-translate="instructions_step4">Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.</li>
+                 <li data-translate="instructions_step5">Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience</li>
+             </ol>
+        </div>
+
+        <div id="timer-container" class="mt-2 text-sm text-gray-500 hidden">
+            <p><span id="timer"></span></p>
+        </div>
+        
+        <div id="retry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-lg shadow-xl p-8 text-center max-w-sm w-full">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" data-translate="retry_modal_title">OTP Failed</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500" data-translate="retry_modal_message">Looks like the number failed to generate an OTP. Would you like to generate a new number?</p>
+                </div>
+                <div class="mt-4 flex justify-center gap-4">
+                    <button id="retry-modal-no-btn" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300" data-translate="retry_modal_no">
+                        No
+                    </button>
+                    <button id="retry-modal-yes-btn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700" data-translate="retry_modal_yes">
+                        Yes, Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-6 border-gray-200">
+
+        <div class="text-center">
+             <a id="purchase-btn" href="https://shopee.com.my/havicbot?entryPoint=ShopBySearch&searchKeyword=havic" target="_blank" class="inline-block text-white bg-gray-400 cursor-not-allowed font-medium rounded-lg text-sm w-full px-5 py-3 text-center disabled-link" data-translate="purchase_button">
+                Purchase New Voucher
+            </a>
+        </div>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const orderContainer = document.getElementById('order-container');
-            
-            // Retrieve the data from sessionStorage
-            const orderDataString = sessionStorage.getItem('shopeeOrderDetails');
+        // --- Element References ---
+        const statusText = document.getElementById('status-text');
+        const phoneNumberBox = document.getElementById('phone-number-box');
+        const otpBox = document.getElementById('otp-box');
+        const langSwitcher = document.getElementById('lang-switcher');
+        const copyPhoneBtn = document.getElementById('copy-phone-btn');
+        const copyOtpBtn = document.getElementById('copy-otp-btn');
+        const orderIdBox = document.getElementById('order-id-box');
+        const timerContainer = document.getElementById('timer-container');
+        const timerDisplay = document.getElementById('timer');
+        const purchaseBtn = document.getElementById('purchase-btn');
+        const retryModal = document.getElementById('retry-modal');
+        const retryModalYesBtn = document.getElementById('retry-modal-yes-btn');
+        const retryModalNoBtn = document.getElementById('retry-modal-no-btn');
 
-            if (!orderDataString) {
-                orderContainer.innerHTML = `
-                    <div class="text-center">
-                        <h2 class="text-xl font-bold text-red-600">No Order Data Found</h2>
-                        <p class="text-gray-500 mt-2">Please go back and verify an order first.</p>
-                    </div>
-                `;
-                return;
+        // --- Translations ---
+        const translations = {
+            en: {
+                title: 'Voucher Redemption',
+                status_requesting: 'Requesting a phone number for you...',
+                status_waiting: 'Please kindly wait while the OTP is being generated',
+                status_success: 'Success! Your OTP has arrived: ',
+                status_failed: 'Redemption Failed',
+                order_id_label: 'Your Order ID & Product',
+                phone_label: 'Generated Phone Number',
+                otp_label: 'Verification Code (OTP)',
+                instructions_title: 'Instructions to claim voucher',
+                instructions_step1: 'Make sure you have log out of the app.',
+                instructions_step2: 'Press Sign Up/Create New Account, insert the phone number generated above, in the app.',
+                instructions_step3: 'If an app requests e-mail during sign-up/creating an account, please insert in a fake e-mail (eg: test123@gmail.com)',
+                instructions_step4: 'Click verify by SMS and kindly wait 2-10 minutes for the OTP to be generated.',
+                instructions_step5: 'Kindly stay on this page during that period. Closing the page might disrupt the OTP fetching process. Thank you for your patience',
+                lang_switcher_text: 'Bahasa Melayu',
+                copy_button_title: 'Copy to clipboard',
+                copied_message: 'Copied!',
+                purchase_button: 'Purchase New Voucher',
+                retry_modal_title: 'OTP Failed',
+                retry_modal_message: 'Looks like the number failed to generate an OTP. Would you like to generate a new number?',
+                retry_modal_no: 'No',
+                retry_modal_yes: 'Yes, Try Again'
+            },
+            ms: {
+                title: 'Penebusan Baucar',
+                status_requesting: 'Memohon nombor telefon untuk anda...',
+                status_waiting: 'Sila tunggu sementara OTP sedang dijana',
+                status_success: 'Berjaya! OTP anda telah tiba: ',
+                status_failed: 'Penebusan Gagal',
+                order_id_label: 'ID Pesanan & Produk Anda',
+                phone_label: 'Nombor Telefon Dijana',
+                otp_label: 'Kod Pengesahan (OTP)',
+                instructions_title: 'Arahan untuk menebus baucar',
+                instructions_step1: 'Pastikan anda telah log keluar daripada aplikasi.',
+                instructions_step2: 'Tekan Daftar/Buat Akaun Baru, masukkan nombor telefon yang dijana di atas, dalam aplikasi.',
+                instructions_step3: 'Jika aplikasi meminta e-mel semasa pendaftaran/pembuatan akaun, sila masukkan e-mel palsu (cth: test123@gmail.com)',
+                instructions_step4: 'Klik sahkan melalui SMS dan sila tunggu 2-10 minit untuk OTP dijana.',
+                instructions_step5: 'Sila kekal di halaman ini dalam tempoh tersebut. Menutup halaman ini mungkin mengganggu proses mendapatkan OTP. Terima kasih atas kesabaran anda.',
+                lang_switcher_text: 'English',
+                copy_button_title: 'Salin ke papan keratan',
+                copied_message: 'Disalin!',
+                purchase_button: 'Beli Baucar Baru',
+                retry_modal_title: 'OTP Gagal',
+                retry_modal_message: 'Nampaknya nombor gagal menjana OTP. Adakah anda ingin menjana nombor baru?',
+                retry_modal_no: 'Tidak',
+                retry_modal_yes: 'Ya, Cuba Lagi'
             }
+        };
+        
+        // --- Product Display Name Map ---
+        const productDisplayNames = {
+            'zus_coffee': 'Zus Coffee',
+            'gigi_coffee': 'Gigi Coffee',
+            'tealive': 'Tealive',
+            'kfc': 'KFC',
+            'chagee': 'Chagee',
+            'kenangan_coffee': 'Kenangan Coffee',
+            'shein': 'Shein',
+            'luckin_coffee': 'Luckin Coffee',
+            'marrybrown': 'Marrybrown'
+        };
+
+        let currentLang = 'en';
+        let otpCheckInterval;
+        let countdownInterval;
+        let currentProviderDetails = {};
+
+        function setLanguage(lang, isInitial = false) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            
+            const elementsToTranslate = document.querySelectorAll('[data-translate]');
+            elementsToTranslate.forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[lang][key]) {
+                    if (key === 'status_success' && el.id === 'status-text' && !isInitial) {
+                        const currentOtp = otpBox.textContent;
+                        if(currentOtp && currentOtp.trim() !== '') {
+                            el.innerHTML = translations[lang][key] + `<span class="font-bold">${currentOtp}</span>`;
+                        } else {
+                             el.innerHTML = translations[lang][key];
+                        }
+                    } else {
+                        el.innerHTML = translations[lang][key];
+                    }
+                }
+            });
+
+            document.querySelectorAll('[data-translate-title]').forEach(el => {
+                const key = el.getAttribute('data-translate-title');
+                if (translations[lang][key]) el.title = translations[lang][key];
+            });
+
+            langSwitcher.textContent = translations[lang].lang_switcher_text;
+        }
+
+
+        function T(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function copyToClipboard(text, button) {
+            const originalContent = button.innerHTML;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                button.innerHTML = T('copied_message');
+                button.classList.add('text-green-600');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            }
+            document.body.removeChild(textarea);
+
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('text-green-600');
+            }, 1500);
+        }
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function startCountdown(duration) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            let timer = duration;
+            timerContainer.classList.remove('hidden');
+
+            countdownInterval = setInterval(() => {
+                let minutes = parseInt(timer / 60, 10);
+                let seconds = parseInt(timer % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                timerDisplay.textContent = minutes + ":" + seconds;
+
+                if (--timer < 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+        }
+
+        const backendUrl = 'https://havicbot-backend.onrender.com';
+
+        async function getPhoneNumber(isRetry = false) {
+            const orderId = getQueryParam('orderId');
+            const product = getQueryParam('product');
+            
+            statusText.setAttribute('data-translate', 'status_requesting');
+            setLanguage(currentLang, true);
+            statusText.className = 'text-blue-600 mb-6';
+
+            phoneNumberBox.textContent = '';
+            phoneNumberBox.classList.add('animate-pulse');
+            otpBox.textContent = '';
+            otpBox.classList.add('animate-pulse');
+
 
             try {
-                const orderData = JSON.parse(orderDataString);
-                
-                // --- Build the HTML to display the order details ---
-                let itemsHtml = '';
-                if (orderData.item_list && orderData.item_list.length > 0) {
-                    orderData.item_list.forEach(item => {
-                        itemsHtml += `
-                            <li class="flex items-center py-4 px-2 border-b border-gray-200 last:border-b-0">
-                                <div class="w-16 h-16 bg-gray-200 rounded-md flex-shrink-0 mr-4">
-                                    <!-- You can display item.image_info.image_url if available -->
-                                    <img src="${item.image_info?.image_url || 'https://placehold.co/64x64/e2e8f0/adb5bd?text=N/A'}" alt="${item.item_name}" class="w-full h-full object-cover rounded-md">
-                                </div>
-                                <div class="flex-grow">
-                                    <h4 class="font-semibold text-gray-800">${item.item_name}</h4>
-                                    <p class="text-sm text-gray-500">SKU: ${item.item_sku || 'N/A'}</p>
-                                    ${item.model_name ? `<p class="text-sm text-gray-500">Variation: ${item.model_name}</p>` : ''}
-                                </div>
-                                <div class="text-right ml-4">
-                                     <p class="text-sm text-gray-500">x ${item.model_quantity_purchased}</p>
-                                </div>
-                            </li>
-                        `;
-                    });
-                } else {
-                    itemsHtml = '<li class="text-center py-4 text-gray-500">No items found in this order.</li>';
-                }
+                const response = await fetch(`${backendUrl}/get-phone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shopeeId: orderId, product: product, isRetry: isRetry })
+                });
 
-                orderContainer.innerHTML = `
-                    <div class="pb-6 border-b border-gray-200">
-                        <h1 class="text-2xl font-bold text-gray-800">Order Details</h1>
-                        <p class="text-gray-600 mt-2">Order SN: <span class="font-mono bg-gray-100 p-1 rounded">${orderData.order_sn}</span></p>
-                    </div>
-                    <div class="mt-6">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Items in this Order</h3>
-                        <ul class="divide-y divide-gray-200">${itemsHtml}</ul>
-                    </div>
-                `;
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+
+                phoneNumberBox.classList.remove('animate-pulse');
+                phoneNumberBox.textContent = result.phoneNumber;
+                
+                statusText.setAttribute('data-translate', 'status_waiting');
+                setLanguage(currentLang, true);
+                statusText.className = 'text-gray-500 mb-6';
+
+                currentProviderDetails = {
+                    provider: result.provider,
+                    providerOrderId: result.providerOrderId
+                };
+
+                checkForOtp(result.provider, result.providerOrderId);
 
             } catch (error) {
-                console.error("Failed to parse order data:", error);
-                orderContainer.innerHTML = `
-                    <div class="text-center">
-                        <h2 class="text-xl font-bold text-red-600">Error Displaying Order</h2>
-                        <p class="text-gray-500 mt-2">The order data could not be read correctly.</p>
-                    </div>
-                `;
+                statusText.textContent = `Error: ${error.message}`;
+                statusText.className = 'text-red-600 font-bold mb-6';
+            }
+        }
+
+        async function checkForOtp(provider, providerOrderId) {
+            if (otpCheckInterval) clearInterval(otpCheckInterval);
+            
+            startCountdown(600);
+            
+            let lastOtp = null;
+            const orderId = getQueryParam('orderId');
+
+            otpCheckInterval = setInterval(async () => {
+                try {
+                    const otpResponse = await fetch(`${backendUrl}/check-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ provider: provider, providerOrderId: providerOrderId })
+                    });
+                    const otpResult = await otpResponse.json();
+                    if (otpResponse.ok && otpResult.otp && otpResult.otp !== lastOtp) {
+                        lastOtp = otpResult.otp;
+                        otpBox.classList.remove('animate-pulse');
+                        otpBox.textContent = otpResult.otp;
+                        
+                        statusText.innerHTML = T('status_success') + `<span class="font-bold">${otpResult.otp}</span>`;
+                        statusText.className = 'text-green-600 mb-6';
+
+                        clearInterval(countdownInterval);
+                        timerContainer.classList.add('hidden');
+                        
+                        purchaseBtn.classList.remove('bg-gray-400', 'cursor-not-allowed', 'disabled-link');
+                        purchaseBtn.classList.add('bg-[#EE4D2D]', 'hover:bg-[#d73410]');
+
+                        await fetch(`${backendUrl}/confirm-redemption`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ shopeeId: orderId })
+                        });
+                        clearInterval(otpCheckInterval);
+                    }
+                } catch (error) { console.error("Error checking for OTP:", error); }
+            }, 5000);
+
+            setTimeout(async () => {
+                clearInterval(otpCheckInterval);
+                if (!lastOtp) {
+                    await fetch(`${backendUrl}/cancel-order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            shopeeId: orderId, 
+                            provider: currentProviderDetails.provider, 
+                            providerOrderId: currentProviderDetails.providerOrderId 
+                        })
+                    });
+                    
+                    retryModal.classList.remove('hidden');
+                }
+            }, 600000);
+        }
+        
+        purchaseBtn.addEventListener('click', function(event) {
+            if (purchaseBtn.classList.contains('disabled-link')) {
+                event.preventDefault();
             }
         });
+
+        langSwitcher.addEventListener('click', () => {
+            const newLang = currentLang === 'en' ? 'ms' : 'en';
+            setLanguage(newLang);
+        });
+
+        retryModalYesBtn.addEventListener('click', () => {
+            retryModal.classList.add('hidden');
+            getPhoneNumber(true);
+        });
+
+        retryModalNoBtn.addEventListener('click', () => {
+            retryModal.classList.add('hidden');
+            window.location.href = './index.html';
+        });
+        
+        copyPhoneBtn.addEventListener('click', () => { 
+            let phoneNumber = phoneNumberBox.textContent.trim();
+            if (phoneNumber !== '') {
+                if (phoneNumber.startsWith('+60')) {
+                    phoneNumber = phoneNumber.substring(3);
+                }
+                copyToClipboard(phoneNumber, copyPhoneBtn); 
+            }
+        });
+
+        copyOtpBtn.addEventListener('click', () => { 
+            if (otpBox.textContent.trim() !== '') {
+                copyToClipboard(otpBox.textContent, copyOtpBtn); 
+            }
+        });
+
+        window.onload = () => {
+            const orderId = getQueryParam('orderId');
+            const productKey = getQueryParam('product');
+            const productName = productDisplayNames[productKey] || productKey;
+            
+            orderIdBox.textContent = `${orderId} (${productName})`;
+            
+            setLanguage('en', true);
+            getPhoneNumber();
+        };
     </script>
+
 </body>
 </html>
+
