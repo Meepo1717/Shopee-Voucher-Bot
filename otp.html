@@ -114,42 +114,20 @@
         return qs.get('orderId') || qs.get('order_sn') || qs.get('ordersn') || qs.get('orderSN');
       }
 
-      // Return an ordered list of backend slug candidates for a product title
+      // Brand slug candidates for backend
       function productSlugCandidates(name = "") {
         const n = name.toLowerCase();
-
-        // ZUS Coffee
         if (n.includes('zus')) return ['zus_coffee', 'zus'];
-
-        // KFC
         if (/\bkfc\b/i.test(name)) return ['kfc'];
-
-        // Marrybrown (include common typo)
         if (n.includes('marrybrown') || n.includes('marybrown')) return ['marrybrown', 'marybrown', 'mb'];
-
-        // CHAGEE
         if (n.includes('chagee')) return ['chagee'];
-
-        // Tealive
         if (n.includes('tealive')) return ['tealive'];
-
-        // Gigi Coffee
         if (n.includes('gigi')) return ['gigi_coffee', 'gigi'];
-
-        // The Coffee Bean & Tea Leaf
         if (n.includes('coffee bean') || n.includes('cb&tl') || n.includes('coffee bean & tea leaf'))
           return ['coffee_bean', 'coffeebean', 'coffee_bean_tea_leaf'];
-
-        // Kenangan Coffee
         if (n.includes('kenangan')) return ['kenangan_coffee', 'kenangan'];
-
-        // Luckin Coffee
         if (n.includes('luckin')) return ['luckin_coffee', 'luckin'];
-
-        // SHEIN
         if (n.includes('shein')) return ['shein'];
-
-        // Fallback
         return ['shopee'];
       }
 
@@ -159,11 +137,22 @@
           const name = it.name ?? it.item_name ?? it.title ?? '';
           const itemId = it.itemId ?? it.item_id ?? it.id ?? '';
           const quantity = Number(it.quantity ?? it.quantity_purchased ?? 1) || 1;
-          // If backend already sent a productKey, respect it; otherwise map from title
           const productKey = it.productKey ?? productSlugCandidates(name)[0];
           return { name, itemId, quantity, productKey };
         });
       }
+
+      // Unique id per voucher card
+      function makeInstanceId() {
+        const buf = new Uint32Array(3);
+        (window.crypto || window.msCrypto).getRandomValues(buf);
+        return `inst_${Date.now().toString(36)}_${buf[0].toString(36)}${buf[1].toString(36)}${buf[2].toString(36)}`;
+      }
+
+      // Track used numbers/provider order IDs to avoid duplicates
+      const usedNumbers = new Set();
+      const usedProviderOrders = new Set();
+      const cardState = {}; // index -> { instanceId }
 
       async function fetchOrderDetails() {
         const orderId = getOrderIdFromUrl();
@@ -210,7 +199,7 @@
 
         container.innerHTML = '';
 
-        // Expand by quantity
+        // Expand by quantity (each item instance = its own card)
         const expanded = [];
         items.forEach(item => {
           for (let i = 0; i < (item.quantity || 1); i++) expanded.push({ ...item });
@@ -225,13 +214,15 @@
         }
 
         expanded.forEach((item, index) => {
+          const instanceId = makeInstanceId();
+          cardState[index] = { instanceId };
+
           const card = document.createElement('div');
           card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
           card.innerHTML = `
             <div class="flex justify-between items-center">
               <div>
                 <h3 class="font-bold text-lg">${item.name || 'Item'}</h3>
-                <p class="text-xs text-gray-500"><span data-translate="product_id_label">Product ID:</span> ${item.itemId || '—'}</p>
               </div>
               <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>
             </div>
@@ -248,7 +239,6 @@
             const detailsContainer = document.getElementById(`details-container-${index}`);
             injectRedemptionUI(detailsContainer, index);
 
-            // Try multiple slug candidates until one succeeds
             const candidates = item.productKey ? [item.productKey] : productSlugCandidates(item.name);
             await requestPhoneNumberWithFallback(orderId, candidates, index);
           });
@@ -278,42 +268,66 @@
         const phoneBox = document.getElementById(`phone-box-${index}`);
         if (!phoneBox) return;
 
+        const { instanceId } = cardState[index] || { instanceId: makeInstanceId() };
         let lastErr = null;
+
+        // Try each slug; for each, retry once if number duplicates
         for (const productKey of candidates) {
-          try {
-            console.log('Trying product slug:', productKey);
-            const res = await fetch(`${backendUrl}/get-phone`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ shopeeId: orderId, product: productKey, isRetry: false })
-            });
-            const data = await res.json().catch(() => ({}));
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const res = await fetch(`${backendUrl}/get-phone`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  shopeeId: orderId,
+                  product: productKey,
+                  isRetry: attempt > 0,
+                  forceNew: true,
+                  instanceId
+                })
+              });
+              const data = await res.json().catch(() => ({}));
 
-            if (!res.ok) {
-              const msg = (data && data.message) ? String(data.message).toLowerCase() : '';
-              // If backend says invalid product, try next candidate
-              if (msg.includes('invalid product')) {
-                lastErr = new Error(data.message || 'Invalid product selected');
-                continue;
+              if (!res.ok) {
+                const msg = (data && data.message) ? String(data.message).toLowerCase() : '';
+                if (msg.includes('invalid product')) {
+                  lastErr = new Error(data.message || 'Invalid product selected');
+                  break; // next slug candidate
+                }
+                throw new Error(data.message || `get-phone ${res.status}`);
               }
-              // Other errors -> stop
-              throw new Error(data.message || `get-phone ${res.status}`);
-            }
 
-            // Success -> render & start OTP polling
-            phoneBox.classList.remove("animate-pulse");
-            phoneBox.textContent = data.phoneNumber || '—';
-            pollForOtp(orderId, data.provider, data.providerOrderId, index);
-            return;
-          } catch (err) {
-            lastErr = err;
+              // Avoid duplicates across cards
+              const dupNumber = data.phoneNumber && usedNumbers.has(data.phoneNumber);
+              const dupProv   = data.providerOrderId && usedProviderOrders.has(data.providerOrderId);
+              if ((dupNumber || dupProv) && attempt === 0) {
+                continue; // retry once for this slug
+              }
+
+              if (data.phoneNumber) usedNumbers.add(data.phoneNumber);
+              if (data.providerOrderId) usedProviderOrders.add(data.providerOrderId);
+
+              phoneBox.classList.remove("animate-pulse");
+              phoneBox.textContent = data.phoneNumber || '—';
+              pollForOtp(orderId, data.provider, data.providerOrderId, index);
+              return;
+            } catch (err) {
+              lastErr = err;
+            }
           }
         }
 
-        // All candidates failed
         phoneBox.classList.remove("animate-pulse");
         phoneBox.textContent = `Error: ${lastErr ? lastErr.message : 'Unable to get number'}`;
         console.error('All slug candidates failed for item', candidates, lastErr);
+      }
+
+      function markButtonRedeemed(index) {
+        const btn = document.getElementById(`redeem-btn-${index}`);
+        if (!btn) return;
+        btn.textContent = 'Redeemed !';
+        btn.classList.remove('bg-gray-400', 'hover:bg-blue-700');
+        btn.classList.add('bg-green-600');
       }
 
       function pollForOtp(orderId, provider, providerOrderId, index) {
@@ -348,6 +362,7 @@
               clearInterval(otpInterval);
               clearInterval(timerInterval);
               timerEl.textContent = `✅ ${translations[currentLang]?.status_received || 'OTP Received!'}`;
+              markButtonRedeemed(index);
             }
           } catch (_) { /* ignore transient polling errors */ }
         }, 5000);
