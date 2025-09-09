@@ -6,14 +6,10 @@
   <title>Voucher Redemption Summary - HavicBot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-  </style>
+  <style>body{font-family:'Inter',sans-serif}</style>
 </head>
-
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-  <!-- Language Switcher Button -->
   <div class="absolute top-4 right-4">
     <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
       Bahasa Melayu
@@ -26,558 +22,451 @@
       <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
     </div>
 
-    <!-- Order SN Display -->
     <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
       <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
       <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
     </div>
 
-    <!-- Container for Product Cards -->
     <div id="products-container" class="space-y-4"></div>
   </div>
 
-  <!-- ================== APPLICATION SCRIPT ================== -->
   <script>
-  (function () {
-    function showFatal(msg, err) {
-      console.error('[HavicBot OTP] ', msg, err || '');
-      const c = document.querySelector('.w-full.max-w-xl.bg-white');
-      if (c) {
-        c.innerHTML = `
-          <div class="text-center">
-            <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;">Voucher Redemption</h1>
-            <p class="text-red-600 font-semibold">An error occurred:</p>
-            <pre class="text-left bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg overflow-auto mt-2 whitespace-pre-wrap">${String(msg)}</pre>
-          </div>`;
-      } else {
-        document.body.innerHTML = \`<pre>\${String(msg)}</pre>\`;
+  (function(){
+    // ---------- Utils ----------
+    function showFatal(msg, err){
+      try{console.error('[HavicBot OTP]', msg, err||'');}catch(e){}
+      var c=document.querySelector('.w-full.max-w-xl.bg-white');
+      var html='<div class="text-center">'
+              +'<h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;">Voucher Redemption</h1>'
+              +'<p class="text-red-600 font-semibold">An error occurred:</p>'
+              +'<pre class="text-left bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg overflow-auto mt-2 whitespace-pre-wrap">'+String(msg)+'</pre>'
+              +'</div>';
+      if(c){c.innerHTML=html;}else{document.body.innerHTML='<pre>'+String(msg)+'</pre>';}
+    }
+    function getQS(name){
+      var s=window.location.search.replace(/^\?/,'').split('&');var i;
+      for(i=0;i<s.length;i++){var p=s[i].split('=');if(decodeURIComponent(p[0])===name){return decodeURIComponent(p[1]||'');}}
+      return null;
+    }
+    function fetchWithTimeout(url,opts,ms){
+      return new Promise(function(resolve,reject){
+        var done=false;
+        var timer=setTimeout(function(){ if(done)return; done=true; reject(new Error('Request timed out')); }, ms||20000);
+        try{
+          fetch(url,opts).then(function(r){ if(done)return; done=true; clearTimeout(timer); resolve(r); })
+                         .catch(function(e){ if(done)return; done=true; clearTimeout(timer); reject(e); });
+        }catch(e){ if(done)return; done=true; clearTimeout(timer); reject(e); }
+      });
+    }
+    function makeInstanceId(){
+      try{
+        var buf=new Uint32Array(3); (window.crypto||window.msCrypto).getRandomValues(buf);
+        return 'inst_'+Date.now().toString(36)+'_'+buf[0].toString(36)+buf[1].toString(36)+buf[2].toString(36);
+      }catch(e){
+        return 'inst_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
       }
     }
 
-    try {
-      // --- Translations ---
-      const translations = {
-        en: {
-          title: "Voucher Redemption",
-          status_fetching: "Fetching your order details...",
-          status_ready: "Your products are ready. Please redeem them below.",
-          status_failed_fetch: "Failed to fetch order details.",
-          order_sn_label: "Order SN",
-          redeem_button: "Redeem",
-          redeeming_button: "Redeeming...",
-          phone_label: "Generated Phone Number",
-          otp_label: "Verification Code (OTP)",
-          status_waiting_otp: "Waiting for OTP...",
-          status_received: "OTP Received!",
-          status_timeout: "OTP not received in time.",
-          lang_button: "Bahasa Melayu"
-        },
-        ms: {
-          title: "Penebusan Baucar",
-          status_fetching: "Memuatkan butiran pesanan anda...",
-          status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
-          status_failed_fetch: "Gagal memuatkan butiran pesanan.",
-          order_sn_label: "SN Pesanan",
-          redeem_button: "Tebus",
-          redeeming_button: "Menebus...",
-          phone_label: "Nombor Telefon Dijana",
-          otp_label: "Kod Pengesahan (OTP)",
-          status_waiting_otp: "Menunggu OTP...",
-          status_received: "OTP Diterima!",
-          status_timeout: "OTP tidak diterima dalam masa.",
-          lang_button: "English"
-        }
-      };
+    // ---------- I18N ----------
+    var translations={
+      en:{title:"Voucher Redemption",status_fetching:"Fetching your order details...",status_ready:"Your products are ready. Please redeem them below.",status_failed_fetch:"Failed to fetch order details.",order_sn_label:"Order SN",redeem_button:"Redeem",redeeming_button:"Redeeming...",phone_label:"Generated Phone Number",otp_label:"Verification Code (OTP)",status_waiting_otp:"Waiting for OTP...",status_received:"OTP Received!",status_timeout:"OTP not received in time.",lang_button:"Bahasa Melayu"},
+      ms:{title:"Penebusan Baucar",status_fetching:"Memuatkan butiran pesanan anda...",status_ready:"Produk anda sudah sedia. Sila tebus di bawah.",status_failed_fetch:"Gagal memuatkan butiran pesanan.",order_sn_label:"SN Pesanan",redeem_button:"Tebus",redeeming_button:"Menebus...",phone_label:"Nombor Telefon Dijana",otp_label:"Kod Pengesahan (OTP)",status_waiting_otp:"Menunggu OTP...",status_received:"OTP Diterima!",status_timeout:"OTP tidak diterima dalam masa.",lang_button:"English"}
+    };
+    var currentLang='en';
+    function setLanguage(lang){
+      currentLang=lang;
+      var els=document.querySelectorAll('[data-translate]'); var i;
+      for(i=0;i<els.length;i++){
+        var el=els[i]; var key=el.getAttribute('data-translate');
+        var t=translations[lang]&&translations[lang][key];
+        if(t){ el.textContent=t; }
+      }
+      var sw=document.getElementById('lang-switcher');
+      if(sw){ sw.textContent=(translations[lang]&&translations[lang].lang_button)||'Language'; }
+    }
 
-      let currentLang = 'en';
-      function setLanguage(lang) {
-        try {
-          currentLang = lang;
-          document.querySelectorAll('[data-translate]').forEach(el => {
-            const key = el.getAttribute('data-translate');
-            if (translations[lang] && translations[lang][key]) {
-              el.textContent = translations[lang][key];
-            }
-          });
-          const sw = document.getElementById('lang-switcher');
-          if (sw) sw.textContent = translations[lang]?.lang_button || 'Language';
-        } catch (e) { console.warn('Lang switch failed', e); }
-      }
+    // ---------- Config ----------
+    var backendUrl="https://havicbot-backend.onrender.com";
 
-      // --- Core Application Logic ---
-      const backendUrl = "https://havicbot-backend.onrender.com";
+    // Fill these to enable Firestore persistence (optional)
+    var firebaseConfig={
+      apiKey:"",          // <-- set real values to enable cloud save
+      authDomain:"",
+      projectId:""
+    };
 
-      // OPTIONAL Firebase config (fill to enable cloud persistence after OTP)
-      const firebaseConfig = {
-        apiKey: "",           // <-- fill to enable Firestore
-        authDomain: "",
-        projectId: "",
-      };
+    // ---------- Firebase (compat, loaded only if configured) ----------
+    var fbReady=false, fbInitAttempted=false;
+    function shouldUseFirebase(cfg){ return cfg && cfg.apiKey && cfg.projectId; }
+    function loadFirebase(callback){
+      if(!shouldUseFirebase(firebaseConfig)){ callback(null); return; }
+      if(fbReady){ callback(window.firebase||null); return; }
+      if(fbInitAttempted){ // wait a bit and try again
+        var t=setInterval(function(){
+          if(fbReady){ clearInterval(t); callback(window.firebase||null); }
+        },100);
+        setTimeout(function(){ clearInterval(t); if(!fbReady) callback(null); },4000);
+        return;
+      }
+      fbInitAttempted=true;
+      function onAllLoaded(){
+        try{
+          if(!window.firebase) return callback(null);
+          window.firebase.initializeApp(firebaseConfig);
+          // force init Firestore
+          window.firebase.firestore();
+          fbReady=true;
+          callback(window.firebase);
+        }catch(e){ console.warn('Firebase init failed',e); callback(null); }
+      }
+      var s1=document.createElement('script'); s1.src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js";
+      var s2=document.createElement('script'); s2.src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js";
+      var loaded=0; function mark(){ loaded++; if(loaded===2) onAllLoaded(); }
+      s1.onload=mark; s2.onload=mark; s1.onerror=mark; s2.onerror=mark;
+      document.head.appendChild(s1); document.head.appendChild(s2);
+    }
+    function fbGetAllCards(orderId, cb){
+      loadFirebase(function(fb){
+        if(!fb){ cb(null); return; }
+        fb.firestore().collection('orders').doc(orderId).collection('cards').get()
+          .then(function(qs){ var map={}; qs.forEach(function(d){ map[d.id]=d.data(); }); cb(map); })
+          .catch(function(){ cb(null); });
+      });
+    }
+    function fbSetCard(orderId, index, data){
+      loadFirebase(function(fb){
+        if(!fb) return;
+        var db=fb.firestore();
+        db.collection('orders').doc(orderId).set({orderId:orderId,updatedAt:fb.firestore.FieldValue.serverTimestamp()},{merge:true})
+          .then(function(){ return db.collection('orders').doc(orderId).collection('cards').doc(String(index)).set(
+            (function(){ var x={}; for(var k in data){x[k]=data[k];} x.index=index; x.updatedAt=fb.firestore.FieldValue.serverTimestamp(); return x; })()
+            ,{merge:true}); })
+          .catch(function(e){ console.warn('fbSetCard error',e); });
+      });
+    }
 
-      // Lazy Firebase (never blocks UI)
-      let db = null;
-      let fb = null; // will hold imported firestore fns
-      let firebaseReady = null;
-      function shouldUseFirebase(cfg) {
-        return cfg && cfg.apiKey && cfg.projectId && !/YOUR_|^$/.test(cfg.apiKey) && !/^$/.test(cfg.projectId);
+    // ---------- Product helpers ----------
+    function productSlugCandidates(name){
+      name=(name||'').toLowerCase();
+      if(name.indexOf('zus')>-1) return ['zus_coffee','zus'];
+      if(/\bkfc\b/i.test(name)) return ['kfc'];
+      if(name.indexOf('marrybrown')>-1 || name.indexOf('marybrown')>-1) return ['marrybrown','marybrown','mb'];
+      if(name.indexOf('chagee')>-1) return ['chagee'];
+      if(name.indexOf('tealive')>-1) return ['tealive'];
+      if(name.indexOf('gigi')>-1) return ['gigi_coffee','gigi'];
+      if(name.indexOf('coffee bean')>-1 || name.indexOf('cb&tl')>-1 || name.indexOf('coffee bean & tea leaf')>-1) return ['coffee_bean','coffeebean','coffee_bean_tea_leaf'];
+      if(name.indexOf('kenangan')>-1) return ['kenangan_coffee','kenangan'];
+      if(name.indexOf('luckin')>-1) return ['luckin_coffee','luckin'];
+      if(name.indexOf('shein')>-1) return ['shein'];
+      return ['shopee'];
+    }
+    function normalizeItems(items){
+      items=items||[]; var out=[], i;
+      for(i=0;i<items.length;i++){
+        var it=items[i];
+        var name=it.name||it.item_name||it.title||'';
+        var itemId=it.itemId||it.item_id||it.id||'';
+        var qty=Number(it.quantity||it.quantity_purchased||1)||1;
+        var key=it.productKey||productSlugCandidates(name)[0];
+        out.push({name:name,itemId:itemId,quantity:qty,productKey:key});
       }
-      async function initFirebaseIfNeeded() {
-        if (!shouldUseFirebase(firebaseConfig)) return null;
-        if (firebaseReady) return firebaseReady;
-        firebaseReady = (async () => {
-          try {
-            const appMod = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js");
-            const fsMod  = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
-            const app = appMod.initializeApp(firebaseConfig);
-            db = fsMod.getFirestore(app);
-            fb = fsMod;
-            console.log("[HavicBot OTP] Firebase initialized");
-            return true;
-          } catch (e) {
-            console.warn("[HavicBot OTP] Firebase init failed; continuing without Firestore", e);
-            db = null; fb = null;
-            return null;
-          }
-        })();
-        return firebaseReady;
-      }
-      async function fbGetAllCards(orderId) {
-        try {
-          await initFirebaseIfNeeded();
-          if (!db || !fb) return null;
-          const colRef = fb.collection(db, "orders", orderId, "cards");
-          const qs = await fb.getDocs(colRef);
-          const map = {};
-          qs.forEach(d => { map[d.id] = d.data(); });
-          return map;
-        } catch (e) { console.warn("fbGetAllCards error", e); return null; }
-      }
-      async function fbSetCard(orderId, index, data) {
-        try {
-          await initFirebaseIfNeeded();
-          if (!db || !fb) return;
-          const orderRef = fb.doc(db, "orders", orderId);
-          await fb.setDoc(orderRef, { orderId, updatedAt: fb.serverTimestamp() }, { merge: true });
-          const cardRef = fb.doc(db, "orders", orderId, "cards", String(index));
-          await fb.setDoc(cardRef, { ...data, index, updatedAt: fb.serverTimestamp() }, { merge: true });
-        } catch (e) { console.warn("fbSetCard error", e); }
-      }
+      return out;
+    }
 
-      function getOrderIdFromUrl() {
-        const qs = new URLSearchParams(window.location.search);
-        return qs.get('orderId') || qs.get('order_sn') || qs.get('ordersn') || qs.get('orderSN');
-      }
+    // ---------- Local persistence ----------
+    function storageKey(orderId){ return 'havicbot_otp_state_v1_'+orderId; }
+    function loadState(orderId){ try{ var raw=localStorage.getItem(storageKey(orderId)); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
+    function saveState(orderId,state){ try{ localStorage.setItem(storageKey(orderId), JSON.stringify(state)); }catch(e){} }
+    function ensureState(orderId){
+      var s=loadState(orderId);
+      if(!s){ s={orderId:orderId, createdAt:Date.now(), cards:{}, usedNumbers:[], usedProviderOrders:[]}; saveState(orderId,s); }
+      return s;
+    }
+    function updateCardState(orderId, index, patch){
+      var s=ensureState(orderId); var cur=s.cards[index]||{}; var k;
+      for(k in patch){ cur[k]=patch[k]; }
+      s.cards[index]=cur; saveState(orderId,s);
+    }
 
-      // Brand slug candidates for backend
-      function productSlugCandidates(name = "") {
-        const n = name.toLowerCase();
-        if (n.includes('zus')) return ['zus_coffee', 'zus'];
-        if (/\bkfc\b/i.test(name)) return ['kfc'];
-        if (n.includes('marrybrown') || n.includes('marybrown')) return ['marrybrown', 'marybrown', 'mb'];
-        if (n.includes('chagee')) return ['chagee'];
-        if (n.includes('tealive')) return ['tealive'];
-        if (n.includes('gigi')) return ['gigi_coffee', 'gigi'];
-        if (n.includes('coffee bean') || n.includes('cb&tl') || n.includes('coffee bean & tea leaf'))
-          return ['coffee_bean', 'coffeebean', 'coffee_bean_tea_leaf'];
-        if (n.includes('kenangan')) return ['kenangan_coffee', 'kenangan'];
-        if (n.includes('luckin')) return ['luckin_coffee', 'luckin'];
-        if (n.includes('shein')) return ['shein'];
-        return ['shopee'];
-      }
+    // ---------- App State ----------
+    var usedNumbers=new Set?new Set():{_:{},has:function(v){return this._[v];},add:function(v){this._[v]=true;}};
+    var usedProviderOrders=new Set?new Set():{_:{},has:function(v){return this._[v];},add:function(v){this._[v]=true;}};
+    var cardState={}; // index -> {instanceId}
 
-      // Normalize items from backend or Shopee escrow shape
-      function normalizeItems(items = []) {
-        return items.map(it => {
-          const name = it.name ?? it.item_name ?? it.title ?? '';
-          const itemId = it.itemId ?? it.item_id ?? it.id ?? '';
-          const quantity = Number(it.quantity ?? it.quantity_purchased ?? 1) || 1;
-          const productKey = it.productKey ?? productSlugCandidates(name)[0];
-          return { name, itemId, quantity, productKey };
-        });
-      }
+    // ---------- DOM builders ----------
+    function injectRedemptionUI(container,index){
+      if(!container) return;
+      var html=''
+        +'<div class="mb-4 text-left">'
+        +  '<label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>'
+        +  '<div class="flex items-center gap-2 mt-1">'
+        +    '<div id="phone-box-'+index+'" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>'
+        +  '</div>'
+        +'</div>'
+        +'<div class="mb-2 text-left">'
+        +  '<label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>'
+        +  '<div class="flex items-center gap-2 mt-1">'
+        +    '<div id="otp-box-'+index+'" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>'
+        +  '</div>'
+        +'</div>'
+        +'<div id="timer-'+index+'" class="text-xs text-right text-gray-500 mt-1"></div>';
+      container.innerHTML=html;
+    }
+    function markButtonRedeemed(index){
+      var btn=document.getElementById('redeem-btn-'+index);
+      if(!btn) return;
+      btn.textContent='Redeemed !';
+      btn.classList.remove('bg-gray-400','hover:bg-blue-700');
+      btn.classList.add('bg-green-600');
+    }
 
-      // ---------- Persistence (localStorage) ----------
-      function storageKey(orderId) {
-        return `havicbot_otp_state_v1_${orderId}`;
-      }
-      function loadState(orderId) {
-        try {
-          const raw = localStorage.getItem(storageKey(orderId));
-          return raw ? JSON.parse(raw) : null;
-        } catch { return null; }
-      }
-      function saveState(orderId, state) {
-        try { localStorage.setItem(storageKey(orderId), JSON.stringify(state)); } catch {}
-      }
-      function ensureState(orderId) {
-        let s = loadState(orderId);
-        if (!s) {
-          s = { orderId, createdAt: Date.now(), cards: {}, usedNumbers: [], usedProviderOrders: [] };
-          saveState(orderId, s);
-        }
-        return s;
-      }
-      function updateCardState(orderId, index, patch) {
-        const s = ensureState(orderId);
-        s.cards[index] = { ...(s.cards[index] || {}), ...patch };
-        saveState(orderId, s);
-      }
+    // ---------- Backend flows ----------
+    function pollForOtp(orderId, provider, providerOrderId, index, remainingMs){
+      var otpBox=document.getElementById('otp-box-'+index);
+      var timerEl=document.getElementById('timer-'+index);
+      if(!otpBox||!timerEl) return;
 
-      // Helpers
-      function makeInstanceId() {
-        try {
-          const buf = new Uint32Array(3);
-          (window.crypto || window.msCrypto).getRandomValues(buf);
-          return `inst_${Date.now().toString(36)}_${buf[0].toString(36)}${buf[1].toString(36)}${buf[2].toString(36)}`;
-        } catch {
-          return `inst_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
-        }
-      }
-      async function fetchWithTimeout(resource, options = {}, ms = 20000) {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), ms);
-        try {
-          const res = await fetch(resource, { ...options, signal: controller.signal });
-          return res;
-        } finally {
-          clearTimeout(id);
-        }
-      }
+      var remaining=Math.ceil((typeof remainingMs==='number'?remainingMs:600000)/1000);
 
-      let usedNumbers = new Set();
-      let usedProviderOrders = new Set();
-      const cardState = {}; // index -> { instanceId }
+      var timerInterval=setInterval(function(){
+        var mins=Math.floor(remaining/60), secs=('0'+(remaining%60)).slice(-2);
+        var t=(translations[currentLang]&&translations[currentLang].status_waiting_otp)||'Waiting for OTP...';
+        timerEl.textContent=t+' '+mins+':'+secs;
+        remaining--; if(remaining<0){ clearInterval(timerInterval); }
+      },1000);
 
-      async function fetchOrderDetails() {
-        const orderId = getOrderIdFromUrl();
-        const statusText = document.getElementById('status-text');
-        const orderDetailsContainer = document.getElementById('order-details-container');
-        const orderSnDisplay = document.getElementById('order-sn-display');
-
-        if (!orderId) {
-          if (statusText) statusText.textContent = "Error: Order_ID invalid. Return to previous page.";
-          console.error('Missing orderId in URL. Expected ?orderId= or ?order_sn=');
+      var otpInterval=setInterval(function(){
+        if(remaining<0){
+          clearInterval(otpInterval);
+          timerEl.textContent=(translations[currentLang]&&translations[currentLang].status_timeout)||'Timed out.';
           return;
         }
+        fetch(backendUrl+'/check-otp', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({provider:provider, providerOrderId:providerOrderId})
+        }).then(function(res){ return res.json().catch(function(){ return {}; }); })
+          .then(function(data){
+            if(data && data.otp){
+              otpBox.classList.remove('animate-pulse');
+              otpBox.textContent=data.otp;
+              updateCardState(orderId, index, { otp:data.otp, redeemed:true });
 
-        // Rehydrate used numbers sets from localStorage
-        const persisted = ensureState(orderId);
-        usedNumbers = new Set(persisted.usedNumbers || []);
-        usedProviderOrders = new Set(persisted.usedProviderOrders || []);
-
-        try {
-          const res = await fetchWithTimeout(`${backendUrl}/get-order-details`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderId })
-          }, 20000);
-          let data = {};
-          try { data = await res.json(); } catch { data = {}; }
-
-          if (!res.ok || !data.success) {
-            throw new Error(data.message || `Backend responded ${res.status}`);
-          }
-
-          if (statusText) statusText.textContent = translations[currentLang]?.status_ready || 'Ready.';
-          if (orderSnDisplay) orderSnDisplay.textContent = data.order_sn || orderId;
-          if (orderDetailsContainer) orderDetailsContainer.classList.remove('hidden');
-
-          const items = normalizeItems(Array.isArray(data.items) ? data.items : []);
-          await renderProducts(orderId, items);
-        } catch (err) {
-          if (statusText) {
-            statusText.textContent = `${translations[currentLang]?.status_failed_fetch || 'Failed to fetch'} (${err.message || 'network error'})`;
-          }
-          console.error('get-order-details failed', err);
-        }
-      }
-
-      async function renderProducts(orderId, items) {
-        const container = document.getElementById('products-container');
-        if (!container) return;
-
-        container.innerHTML = '';
-
-        // Expand by quantity
-        const expanded = [];
-        items.forEach(item => {
-          for (let i = 0; i < (item.quantity || 1); i++) expanded.push({ ...item });
-        });
-
-        if (!expanded.length) {
-          const p = document.createElement('p');
-          p.className = 'text-center text-gray-600';
-          p.textContent = 'No items found for this order.';
-          container.appendChild(p);
-          return;
-        }
-
-        const persisted = ensureState(orderId);
-        const fbCards = (await fbGetAllCards(orderId)) || {};
-
-        expanded.forEach((item, index) => {
-          const existingLocal = (persisted.cards && persisted.cards[index]) || null;
-          const instanceId = existingLocal?.instanceId || makeInstanceId();
-          cardState[index] = { instanceId };
-          updateCardState(orderId, index, {
-            instanceId,
-            itemName: item.name,
-            itemId: item.itemId || "",
-            productKey: item.productKey
-          });
-
-          const card = document.createElement('div');
-          card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
-          card.innerHTML = `
-            <div class="flex justify-between items-center">
-              <div>
-                <h3 class="font-bold text-lg">${item.name || 'Item'}</h3>
-              </div>
-              <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>
-            </div>
-            <div id="details-container-${index}" class="mt-4"></div>
-          `;
-          container.appendChild(card);
-
-          const btn = document.getElementById(`redeem-btn-${index}`);
-
-          // Prefer Firebase cross-device state, else local
-          const fbCard = fbCards[String(index)];
-          const haveFirebase = fbCard && fbCard.phoneNumber && (fbCard.otp || fbCard.providerOrderId);
-          const local = existingLocal;
-          const haveLocal = local && local.phoneNumber;
-
-          if (haveFirebase || haveLocal) {
-            injectRedemptionUI(document.getElementById(`details-container-${index}`), index);
-            const phoneBox = document.getElementById(`phone-box-${index}`);
-            const otpBox = document.getElementById(`otp-box-${index}`);
-
-            const phoneNumber = haveFirebase ? fbCard.phoneNumber : local.phoneNumber;
-            const otpVal      = haveFirebase ? fbCard.otp : local.otp;
-            const provider    = haveFirebase ? fbCard.provider : local.provider;
-            const providerOrderId = haveFirebase ? fbCard.providerOrderId : local.providerOrderId;
-            const expiry      = haveFirebase ? fbCard.countdownExpiry : local.countdownExpiry;
-
-            phoneBox.classList.remove("animate-pulse");
-            phoneBox.textContent = phoneNumber;
-
-            if (haveFirebase) {
-              updateCardState(orderId, index, {
-                instanceId,
-                phoneNumber,
-                provider,
-                providerOrderId,
-                countdownExpiry: expiry || (Date.now() + 600000),
-                otp: otpVal || null,
-                redeemed: !!otpVal
-              });
-            }
-
-            if (otpVal) {
-              otpBox.classList.remove("animate-pulse");
-              otpBox.textContent = otpVal;
-              markButtonRedeemed(index);
-            } else {
-              if (btn) {
-                btn.disabled = true;
-                btn.textContent = translations[currentLang]?.redeeming_button || 'Redeeming...';
-                btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-              }
-              const remainingMs = Math.max(0, (expiry || (Date.now()+600000)) - Date.now());
-              pollForOtp(orderId, provider, providerOrderId, index, remainingMs);
-            }
-          }
-
-          btn?.addEventListener('click', async () => {
-            const cur = (ensureState(orderId).cards || {})[index] || {};
-            if ((cur.phoneNumber && (cur.otp || cur.providerOrderId)) || (fbCards[String(index)]?.otp)) return;
-
-            btn.disabled = true;
-            btn.textContent = translations[currentLang]?.redeeming_button || 'Redeeming...';
-            btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-
-            const detailsContainer = document.getElementById(`details-container-${index}`);
-            injectRedemptionUI(detailsContainer, index);
-
-            const candidates = item.productKey ? [item.productKey] : productSlugCandidates(item.name);
-            await requestPhoneNumberWithFallback(orderId, candidates, index);
-          });
-        });
-      }
-
-      function injectRedemptionUI(container, index) {
-        if (!container) return;
-        container.innerHTML = `
-          <div class="mb-4 text-left">
-            <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
-            <div class="flex items-center gap-2 mt-1">
-              <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
-            </div>
-          </div>
-          <div class="mb-2 text-left">
-            <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
-            <div class="flex items-center gap-2 mt-1">
-              <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
-            </div>
-          </div>
-          <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
-        `;
-      }
-
-      async function requestPhoneNumberWithFallback(orderId, candidates, index) {
-        const phoneBox = document.getElementById(`phone-box-${index}`);
-        if (!phoneBox) return;
-
-        const stateBefore = ensureState(orderId);
-        const { instanceId } = stateBefore.cards[index] || { instanceId: makeInstanceId() };
-        let lastErr = null;
-
-        for (const productKey of candidates) {
-          for (let attempt = 0; attempt < 2; attempt++) {
-            try {
-              const res = await fetch(`${backendUrl}/get-phone`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  shopeeId: orderId,
-                  product: productKey,
-                  isRetry: attempt > 0,
-                  forceNew: true,
-                  instanceId
-                })
-              });
-              let data = {};
-              try { data = await res.json(); } catch { data = {}; }
-
-              if (!res.ok) {
-                const msg = (data && data.message) ? String(data.message).toLowerCase() : '';
-                if (msg.includes('invalid product')) {
-                  lastErr = new Error(data.message || 'Invalid product selected');
-                  break; // next slug
-                }
-                throw new Error(data.message || `get-phone ${res.status}`);
-              }
-
-              const dupNumber = data.phoneNumber && usedNumbers.has(data.phoneNumber);
-              const dupProv   = data.providerOrderId && usedProviderOrders.has(data.providerOrderId);
-              if ((dupNumber || dupProv) && attempt === 0) {
-                continue; // retry once
-              }
-
-              if (data.phoneNumber) usedNumbers.add(data.phoneNumber);
-              if (data.providerOrderId) usedProviderOrders.add(data.providerOrderId);
-
-              const expiry = Date.now() + 600 * 1000;
-              updateCardState(orderId, index, {
-                instanceId,
-                phoneNumber: data.phoneNumber || "",
-                provider: data.provider || "",
-                providerOrderId: data.providerOrderId || "",
-                countdownExpiry: expiry,
-                otp: null,
-                redeemed: false
-              });
-
-              const s = ensureState(orderId);
-              s.usedNumbers = Array.from(usedNumbers);
-              s.usedProviderOrders = Array.from(usedProviderOrders);
-              saveState(orderId, s);
-
-              phoneBox.classList.remove("animate-pulse");
-              phoneBox.textContent = data.phoneNumber || '—';
-
-              const remainingMs = Math.max(0, expiry - Date.now());
-              pollForOtp(orderId, data.provider, data.providerOrderId, index, remainingMs);
-              return;
-            } catch (err) {
-              lastErr = err;
-            }
-          }
-        }
-
-        phoneBox.classList.remove("animate-pulse");
-        phoneBox.textContent = `Error: ${lastErr ? lastErr.message : 'Unable to get number'}`;
-        console.error('All slug candidates failed for item', candidates, lastErr);
-      }
-
-      function markButtonRedeemed(index) {
-        const btn = document.getElementById(`redeem-btn-${index}`);
-        if (!btn) return;
-        btn.textContent = 'Redeemed !';
-        btn.classList.remove('bg-gray-400', 'hover:bg-blue-700');
-        btn.classList.add('bg-green-600');
-      }
-
-      function pollForOtp(orderId, provider, providerOrderId, index, remainingMs) {
-        const otpBox = document.getElementById(`otp-box-${index}`);
-        const timerEl = document.getElementById(`timer-${index}`);
-        if (!otpBox || !timerEl) return;
-
-        let remaining = Math.ceil((typeof remainingMs === 'number' ? remainingMs : 600000) / 1000);
-
-        const timerInterval = setInterval(() => {
-          timerEl.textContent =
-            `${translations[currentLang]?.status_waiting_otp || 'Waiting for OTP...'} ${Math.floor(remaining/60)}:${('0'+remaining%60).slice(-2)}`;
-          if (--remaining < 0) clearInterval(timerInterval);
-        }, 1000);
-
-        const otpInterval = setInterval(async () => {
-          if (remaining < 0) {
-            clearInterval(otpInterval);
-            timerEl.textContent = translations[currentLang]?.status_timeout || 'Timed out.';
-            return;
-          }
-          try {
-            const res = await fetch(`${backendUrl}/check-otp`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ provider, providerOrderId })
-            });
-            let data = {};
-            try { data = await res.json(); } catch { data = {}; }
-            if (res.ok && data.otp) {
-              otpBox.classList.remove("animate-pulse");
-              otpBox.textContent = data.otp;
-
-              updateCardState(orderId, index, { otp: data.otp, redeemed: true });
-
-              const ls = ensureState(orderId).cards[index];
+              // Save to Firestore (cross-device)
+              var ls=ensureState(orderId).cards[index]||{};
               fbSetCard(orderId, index, {
-                instanceId: ls?.instanceId || "",
-                itemName: ls?.itemName || "",
-                productKey: ls?.productKey || "",
-                phoneNumber: ls?.phoneNumber || "",
-                provider: provider || "",
-                providerOrderId: providerOrderId || "",
+                instanceId: ls.instanceId||'',
+                itemName: ls.itemName||'',
+                productKey: ls.productKey||'',
+                phoneNumber: ls.phoneNumber||'',
+                provider: provider||'',
+                providerOrderId: providerOrderId||'',
                 otp: data.otp,
                 redeemed: true,
-                countdownExpiry: ls?.countdownExpiry || (Date.now() + 600000)
+                countdownExpiry: ls.countdownExpiry || (Date.now()+600000)
               });
 
-              clearInterval(otpInterval);
-              clearInterval(timerInterval);
-              timerEl.textContent = `✅ ${translations[currentLang]?.status_received || 'OTP Received!'}`;
+              clearInterval(otpInterval); clearInterval(timerInterval);
+              var rec=(translations[currentLang]&&translations[currentLang].status_received)||'OTP Received!';
+              timerEl.textContent='✅ '+rec;
               markButtonRedeemed(index);
             }
-          } catch (_) { /* ignore transient polling errors */ }
-        }, 5000);
+          })["catch"](function(){});
+      },5000);
+    }
+
+    function requestPhoneNumberWithFallback(orderId, candidates, index){
+      var phoneBox=document.getElementById('phone-box-'+index); if(!phoneBox) return;
+      var stateBefore=ensureState(orderId);
+      var instanceId=(stateBefore.cards[index]&&stateBefore.cards[index].instanceId)||makeInstanceId();
+      var lastErr=null;
+
+      function attemptSlug(slugList, pos, retry){
+        if(pos>=slugList.length){ finishFail(); return; }
+        var productKey=slugList[pos];
+        fetch(backendUrl+'/get-phone',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({shopeeId:orderId, product:productKey, isRetry:!!retry, forceNew:true, instanceId:instanceId})
+        }).then(function(res){ return res.json().then(function(j){ return {ok:res.ok, body:j}; })["catch"](function(){ return {ok:res.ok, body:{}}; }); })
+          .then(function(resp){
+            if(!resp.ok){
+              var msg=(resp.body&&resp.body.message)?String(resp.body.message).toLowerCase():'';
+              if(!retry && msg.indexOf('invalid product')>-1){ attemptSlug(candidates, pos+1, false); return; }
+              if(!retry){ attemptSlug(candidates, pos, true); return; }
+              lastErr=new Error(resp.body&&resp.body.message||('get-phone '+(resp.status||'')));
+              attemptSlug(candidates, pos+1, false);
+              return;
+            }
+            var data=resp.body||{};
+            var dupNumber=data.phoneNumber && (usedNumbers.has?usedNumbers.has(data.phoneNumber):usedNumbers.has[data.phoneNumber]);
+            var dupProv=data.providerOrderId && (usedProviderOrders.has?usedProviderOrders.has(data.providerOrderId):usedProviderOrders.has[data.providerOrderId]);
+            if(!retry && (dupNumber||dupProv)){ attemptSlug(candidates,pos,true); return; }
+
+            if(data.phoneNumber){ (usedNumbers.add?usedNumbers.add(data.phoneNumber):usedNumbers.add[data.phoneNumber]=true); }
+            if(data.providerOrderId){ (usedProviderOrders.add?usedProviderOrders.add(data.providerOrderId):usedProviderOrders.add[data.providerOrderId]=true); }
+
+            var expiry=Date.now()+600*1000;
+            updateCardState(orderId,index,{
+              instanceId:instanceId,
+              phoneNumber:data.phoneNumber||'',
+              provider:data.provider||'',
+              providerOrderId:data.providerOrderId||'',
+              countdownExpiry:expiry,
+              otp:null,
+              redeemed:false
+            });
+            var s=ensureState(orderId);
+            s.usedNumbers=Array.isArray(s.usedNumbers)?s.usedNumbers:[]; s.usedProviderOrders=Array.isArray(s.usedProviderOrders)?s.usedProviderOrders:[];
+            s.usedNumbers.push(data.phoneNumber||''); s.usedProviderOrders.push(data.providerOrderId||''); saveState(orderId,s);
+
+            phoneBox.classList.remove('animate-pulse');
+            phoneBox.textContent=data.phoneNumber||'—';
+            var remainingMs=Math.max(0, expiry-Date.now());
+            pollForOtp(orderId, data.provider, data.providerOrderId, index, remainingMs);
+          })["catch"](function(e){
+            lastErr=e||new Error('Network error');
+            if(!retry){ attemptSlug(candidates,pos,true); } else { attemptSlug(candidates,pos+1,false); }
+          });
+      }
+      function finishFail(){
+        phoneBox.classList.remove('animate-pulse');
+        phoneBox.textContent='Error: '+(lastErr?lastErr.message:'Unable to get number');
+      }
+      attemptSlug(candidates,0,false);
+    }
+
+    // ---------- Render ----------
+    function renderProducts(orderId, items, fbCards){
+      var container=document.getElementById('products-container'); if(!container) return;
+      container.innerHTML='';
+      var expanded=[], i, j;
+      for(i=0;i<items.length;i++){ for(j=0;j<(items[i].quantity||1);j++) expanded.push(items[i]); }
+      if(!expanded.length){
+        var p=document.createElement('p'); p.className='text-center text-gray-600'; p.textContent='No items found for this order.'; container.appendChild(p); return;
+      }
+      var persisted=ensureState(orderId);
+
+      for(i=0;i<expanded.length;i++){
+        var item=expanded[i];
+        var existingLocal=(persisted.cards&&persisted.cards[i])||null;
+        var instanceId=(existingLocal&&existingLocal.instanceId)||makeInstanceId();
+        cardState[i]={instanceId:instanceId};
+        updateCardState(orderId,i,{instanceId:instanceId,itemName:item.name,itemId:item.itemId||'',productKey:item.productKey});
+
+        var card=document.createElement('div');
+        card.className="border border-gray-200 rounded-lg p-4 shadow-sm";
+        card.innerHTML='<div class="flex justify-between items-center">'
+                      +  '<div><h3 class="font-bold text-lg">'+(item.name||'Item')+'</h3></div>'
+                      +  '<button id="redeem-btn-'+i+'" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>'
+                      +'</div>'
+                      +'<div id="details-container-'+i+'" class="mt-4"></div>';
+        container.appendChild(card);
+
+        var btn=document.getElementById('redeem-btn-'+i);
+
+        var fbCard=fbCards&&fbCards[String(i)];
+        var haveFirebase=fbCard && fbCard.phoneNumber && (fbCard.otp || fbCard.providerOrderId);
+        var haveLocal=existingLocal && existingLocal.phoneNumber;
+
+        if(haveFirebase || haveLocal){
+          injectRedemptionUI(document.getElementById('details-container-'+i), i);
+          var phoneBox=document.getElementById('phone-box-'+i);
+          var otpBox=document.getElementById('otp-box-'+i);
+
+          var phoneNumber=haveFirebase?fbCard.phoneNumber:existingLocal.phoneNumber;
+          var otpVal=haveFirebase?fbCard.otp:existingLocal.otp;
+          var provider=haveFirebase?fbCard.provider:existingLocal.provider;
+          var providerOrderId=haveFirebase?fbCard.providerOrderId:existingLocal.providerOrderId;
+          var expiry=haveFirebase?fbCard.countdownExpiry:existingLocal.countdownExpiry;
+
+          phoneBox.classList.remove('animate-pulse');
+          phoneBox.textContent=phoneNumber;
+
+          if(haveFirebase){
+            updateCardState(orderId,i,{instanceId:instanceId,phoneNumber:phoneNumber,provider:provider,providerOrderId:providerOrderId,countdownExpiry:expiry||Date.now()+600000,otp:otpVal||null,redeemed:!!otpVal});
+          }
+
+          if(otpVal){
+            otpBox.classList.remove('animate-pulse'); otpBox.textContent=otpVal; markButtonRedeemed(i);
+          }else{
+            if(btn){ btn.disabled=true; btn.textContent=(translations[currentLang]&&translations[currentLang].redeeming_button)||'Redeeming...'; btn.classList.add('bg-gray-400','cursor-not-allowed'); }
+            var remainingMs=Math.max(0,(expiry||Date.now()+600000)-Date.now());
+            pollForOtp(orderId, provider, providerOrderId, i, remainingMs);
+          }
+        }
+
+        (function(idx,itm){
+          if(!btn) return;
+          btn.addEventListener('click', function(){
+            var cur=(ensureState(orderId).cards||{})[idx]||{};
+            if((cur.phoneNumber && (cur.otp||cur.providerOrderId)) || (fbCards&&fbCards[String(idx)]&&fbCards[String(idx)].otp)) return;
+
+            btn.disabled=true; btn.textContent=(translations[currentLang]&&translations[currentLang].redeeming_button)||'Redeeming...';
+            btn.classList.add('bg-gray-400','cursor-not-allowed');
+
+            var details=document.getElementById('details-container-'+idx);
+            injectRedemptionUI(details, idx);
+
+            var candidates=itm.productKey?[itm.productKey]:productSlugCandidates(itm.name);
+            requestPhoneNumberWithFallback(orderId, candidates, idx);
+          });
+        })(i,item);
+      }
+    }
+
+    // ---------- Boot ----------
+    function fetchOrderDetails(){
+      var statusText=document.getElementById('status-text');
+      var orderDetailsContainer=document.getElementById('order-details-container');
+      var orderSnDisplay=document.getElementById('order-sn-display');
+      var orderId=getQS('orderId')||getQS('order_sn')||getQS('ordersn')||getQS('orderSN')||getQS('orderSn');
+
+      if(!orderId){
+        if(statusText){ statusText.textContent="Error: Order_ID invalid. Return to previous page."; }
+        return;
       }
 
-      window.addEventListener('load', () => {
-        try {
-          const sw = document.getElementById('lang-switcher');
-          if (sw) {
-            sw.textContent = translations[currentLang]?.lang_button || 'Bahasa Melayu';
-            sw.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
-          }
-          fetchOrderDetails();
-        } catch (e) {
-          showFatal('Startup failed', e);
+      // rehydrate sets
+      var persisted=ensureState(orderId);
+      try{
+        if(persisted.usedNumbers && persisted.usedNumbers.forEach){ persisted.usedNumbers.forEach(function(n){ if(n){ if(usedNumbers.add) usedNumbers.add(n); else usedNumbers.add[n]=true; } }); }
+        if(persisted.usedProviderOrders && persisted.usedProviderOrders.forEach){ persisted.usedProviderOrders.forEach(function(n){ if(n){ if(usedProviderOrders.add) usedProviderOrders.add(n); else usedProviderOrders.add[n]=true; } }); }
+      }catch(e){}
+
+      fetchWithTimeout(backendUrl+'/get-order-details',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({shopeeId:orderId})
+      },20000).then(function(res){
+        return res.json().catch(function(){ return {}; }).then(function(data){ return {ok:res.ok, body:data}; });
+      }).then(function(resp){
+        if(!resp.ok || !resp.body || !resp.body.success){
+          var msg=(resp.body&&resp.body.message)||('HTTP '+(resp.status||'error'));
+          if(statusText){ statusText.textContent=((translations[currentLang]&&translations[currentLang].status_failed_fetch)||'Failed to fetch')+' ('+msg+')'; }
+          return;
         }
+        if(statusText){ statusText.textContent=(translations[currentLang]&&translations[currentLang].status_ready)||'Ready.'; }
+        if(orderSnDisplay){ orderSnDisplay.textContent=resp.body.order_sn||orderId; }
+        if(orderDetailsContainer){ orderDetailsContainer.classList.remove('hidden'); }
+
+        var items=normalizeItems(Array.isArray(resp.body.items)?resp.body.items:[]);
+        fbGetAllCards(orderId, function(fbCards){
+          renderProducts(orderId, items, fbCards||{});
+        });
+      })["catch"](function(err){
+        if(statusText){ statusText.textContent=((translations[currentLang]&&translations[currentLang].status_failed_fetch)||'Failed to fetch')+' ('+(err&&err.message||'network error')+')'; }
       });
-    } catch (outer) {
-      showFatal('Top-level script error', outer);
     }
+
+    window.addEventListener('load', function(){
+      var sw=document.getElementById('lang-switcher');
+      if(sw){
+        sw.textContent=(translations[currentLang]&&translations[currentLang].lang_button)||'Bahasa Melayu';
+        sw.addEventListener('click', function(){ setLanguage(currentLang==='en'?'ms':'en'); });
+      }
+      fetchOrderDetails();
+    });
   })();
   </script>
 </body>
