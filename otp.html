@@ -101,10 +101,8 @@
     function loadFirebase(callback){
       if(!shouldUseFirebase(firebaseConfig)){ callback(null); return; }
       if(fbReady){ callback(window.firebase||null); return; }
-      if(fbInitAttempted){ // wait a bit and try again
-        var t=setInterval(function(){
-          if(fbReady){ clearInterval(t); callback(window.firebase||null); }
-        },100);
+      if(fbInitAttempted){
+        var t=setInterval(function(){ if(fbReady){ clearInterval(t); callback(window.firebase||null); } },100);
         setTimeout(function(){ clearInterval(t); if(!fbReady) callback(null); },4000);
         return;
       }
@@ -113,7 +111,6 @@
         try{
           if(!window.firebase) return callback(null);
           window.firebase.initializeApp(firebaseConfig);
-          // force init Firestore
           window.firebase.firestore();
           fbReady=true;
           callback(window.firebase);
@@ -252,7 +249,7 @@
               otpBox.textContent=data.otp;
               updateCardState(orderId, index, { otp:data.otp, redeemed:true });
 
-              // Save to Firestore (cross-device)
+              // Save to Firestore (update with OTP)
               var ls=ensureState(orderId).cards[index]||{};
               fbSetCard(orderId, index, {
                 instanceId: ls.instanceId||'',
@@ -316,9 +313,28 @@
               otp:null,
               redeemed:false
             });
+
+            // ---- NEW: save PHONE IMMEDIATELY to Firestore (pre-OTP) ----
             var s=ensureState(orderId);
-            s.usedNumbers=Array.isArray(s.usedNumbers)?s.usedNumbers:[]; s.usedProviderOrders=Array.isArray(s.usedProviderOrders)?s.usedProviderOrders:[];
-            s.usedNumbers.push(data.phoneNumber||''); s.usedProviderOrders.push(data.providerOrderId||''); saveState(orderId,s);
+            fbSetCard(orderId, index, {
+              instanceId: s.cards[index].instanceId || "",
+              itemName: s.cards[index].itemName || "",
+              productKey: s.cards[index].productKey || "",
+              phoneNumber: data.phoneNumber || "",
+              provider: data.provider || "",
+              providerOrderId: data.providerOrderId || "",
+              otp: null,
+              redeemed: false,
+              countdownExpiry: expiry
+            });
+            // ------------------------------------------------------------
+
+            // persist used lists locally
+            s.usedNumbers = Array.isArray(s.usedNumbers)? s.usedNumbers : [];
+            s.usedProviderOrders = Array.isArray(s.usedProviderOrders)? s.usedProviderOrders : [];
+            if(data.phoneNumber) s.usedNumbers.push(data.phoneNumber);
+            if(data.providerOrderId) s.usedProviderOrders.push(data.providerOrderId);
+            saveState(orderId,s);
 
             phoneBox.classList.remove('animate-pulse');
             phoneBox.textContent=data.phoneNumber||'—';
@@ -337,6 +353,17 @@
     }
 
     // ---------- Render ----------
+    function injectCard(container, index, itemName){
+      var card=document.createElement('div');
+      card.className="border border-gray-200 rounded-lg p-4 shadow-sm";
+      card.innerHTML='<div class="flex justify-between items-center">'
+                    +  '<div><h3 class="font-bold text-lg">'+(itemName||'Item')+'</h3></div>'
+                    +  '<button id="redeem-btn-'+index+'" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>'
+                    +'</div>'
+                    +'<div id="details-container-'+index+'" class="mt-4"></div>';
+      container.appendChild(card);
+    }
+
     function renderProducts(orderId, items, fbCards){
       var container=document.getElementById('products-container'); if(!container) return;
       container.innerHTML='';
@@ -354,14 +381,7 @@
         cardState[i]={instanceId:instanceId};
         updateCardState(orderId,i,{instanceId:instanceId,itemName:item.name,itemId:item.itemId||'',productKey:item.productKey});
 
-        var card=document.createElement('div');
-        card.className="border border-gray-200 rounded-lg p-4 shadow-sm";
-        card.innerHTML='<div class="flex justify-between items-center">'
-                      +  '<div><h3 class="font-bold text-lg">'+(item.name||'Item')+'</h3></div>'
-                      +  '<button id="redeem-btn-'+i+'" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>'
-                      +'</div>'
-                      +'<div id="details-container-'+i+'" class="mt-4"></div>';
-        container.appendChild(card);
+        injectCard(container, i, item.name);
 
         var btn=document.getElementById('redeem-btn-'+i);
 
