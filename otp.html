@@ -154,7 +154,7 @@
         if (statusText) statusText.textContent = translations[currentLang]?.status_fetching || 'Loading...';
 
         if (!orderId) {
-          if (statusText) statusText.textContent = "Error: Error Order_ID invalid. Return to previous page.";
+          if (statusText) statusText.textContent = "Error: Order_ID invalid. Return to previous page.";
           console.error('Missing orderId in URL. Expected ?orderId= or ?order_sn=');
           return;
         }
