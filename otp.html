@@ -1,467 +1,467 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Voucher Redemption - HavicBot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>body{font-family:'Inter',sans-serif}</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voucher Redemption - HavicBot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>body{font-family:'Inter',sans-serif}</style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-  <!-- Language Switcher -->
-  <div class="absolute top-4 right-4">
-    <button id="lang-switcher"
-            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
-      Bahasa Melayu
-    </button>
-  </div>
+    <div class="absolute top-4 right-4">
+    <button id="lang-switcher"
+            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+      Bahasa Melayu
+    </button>
+  </div>
 
-  <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
-    <div class="text-center">
-      <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
-      <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
-    </div>
+  <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
+    <div class="text-center">
+      <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
+      <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
+    </div>
 
-    <!-- Order SN -->
-    <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
-      <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
-      <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
-    </div>
+        <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
+      <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
+      <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
+    </div>
 
-    <!-- Products -->
-    <div id="products-container" class="space-y-4"></div>
-  </div>
+        <div id="products-container" class="space-y-4"></div>
+  </div>
 
 <script>
 (() => {
-  const backendUrl = "https://havicbot-backend.onrender.com";
+  const backendUrl = "https://havicbot-backend.onrender.com";
 
-  // ---------- i18n ----------
-  const translations = {
-    en: {
-      title: "Voucher Redemption",
-      status_fetching: "Fetching your order details...",
-      status_ready: "Your products are ready. Please redeem them below.",
-      status_failed_fetch: "Failed to fetch order details.",
-      order_sn_label: "Order SN",
-      redeem_button: "Redeem",
-      redeeming_button: "Redeeming...",
-      redeemed_button: "Redeemed!",
-      phone_label: "Generated Phone Number",
-      otp_label: "Verification Code (OTP)",
-      status_waiting_otp: "Waiting for OTP...",
-      status_received: "OTP Received!",
-      status_timeout: "OTP not received in time.",
-      lang_button: "Bahasa Melayu",
-      error_get_number: "Unable to get number",
-      retry: "Retry",
-      getting_number_retrying: (n, total) => `Waiting for available numbers… (retry ${n}/${total})`,
-      copy: "Copy",
-      copied: "Copied!"
-    },
-    ms: {
-      title: "Penebusan Baucar",
-      status_fetching: "Memuatkan butiran pesanan anda...",
-      status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
-      status_failed_fetch: "Gagal memuatkan butiran pesanan.",
-      order_sn_label: "SN Pesanan",
-      redeem_button: "Tebus",
-      redeeming_button: "Menebus...",
-      redeemed_button: "Telah Ditebus!",
-      phone_label: "Nombor Telefon Dijana",
-      otp_label: "Kod Pengesahan (OTP)",
-      status_waiting_otp: "Menunggu OTP...",
-      status_received: "OTP Diterima!",
-      status_timeout: "OTP tidak diterima dalam masa.",
-      lang_button: "English",
-      error_get_number: "Tidak dapat memperoleh nombor",
-      retry: "Cuba Lagi",
-      getting_number_retrying: (n, total) => `Menunggu nombor tersedia… (cubaan ${n}/${total})`,
-      copy: "Salin",
-      copied: "Disalin!"
-    }
-  };
-  let currentLang = 'en';
-  function setLanguage(lang){
-    currentLang = lang;
-    document.querySelectorAll('[data-translate]').forEach(el=>{
-      const key = el.getAttribute('data-translate');
-      const val = translations[lang][key];
-      if (typeof val === 'string') el.textContent = val;
-      else if (typeof val === 'function') el.textContent = val(1,1);
-    });
-    const sw = document.getElementById('lang-switcher');
-    if (sw) sw.textContent = translations[lang].lang_button;
-    document.querySelectorAll('[data-i18n-copy]').forEach(btn=>{
-      btn.textContent = translations[lang].copy;
-    });
-  }
-  function t(k,...args){
-    const v = translations[currentLang][k];
-    return typeof v === 'function' ? v(...args) : v;
-  }
+  // ---------- i18n ----------
+  const translations = {
+    en: {
+      title: "Voucher Redemption",
+      status_fetching: "Fetching your order details...",
+      status_ready: "Your products are ready. Please redeem them below.",
+      status_failed_fetch: "Failed to fetch order details.",
+      order_sn_label: "Order SN",
+      redeem_button: "Redeem",
+      redeeming_button: "Redeeming...",
+      redeemed_button: "Redeemed!",
+      phone_label: "Generated Phone Number",
+      otp_label: "Verification Code (OTP)",
+      status_waiting_otp: "Waiting for OTP...",
+      status_received: "OTP Received!",
+      status_timeout: "OTP not received in time.",
+      lang_button: "Bahasa Melayu",
+      error_get_number: "Unable to get number",
+      retry: "Retry",
+      getting_number_retrying: (n, total) => `Waiting for available numbers… (retry ${n}/${total})`,
+      copy: "Copy",
+      copied: "Copied!"
+    },
+    ms: {
+      title: "Penebusan Baucar",
+      status_fetching: "Memuatkan butiran pesanan anda...",
+      status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
+      status_failed_fetch: "Gagal memuatkan butiran pesanan.",
+      order_sn_label: "SN Pesanan",
+      redeem_button: "Tebus",
+      redeeming_button: "Menebus...",
+      redeemed_button: "Telah Ditebus!",
+      phone_label: "Nombor Telefon Dijana",
+      otp_label: "Kod Pengesahan (OTP)",
+      status_waiting_otp: "Menunggu OTP...",
+      status_received: "OTP Diterima!",
+      status_timeout: "OTP tidak diterima dalam masa.",
+      lang_button: "English",
+      error_get_number: "Tidak dapat memperoleh nombor",
+      retry: "Cuba Lagi",
+      getting_number_retrying: (n, total) => `Menunggu nombor tersedia… (cubaan ${n}/${total})`,
+      copy: "Salin",
+      copied: "Disalin!"
+    }
+  };
+  let currentLang = 'en';
+  function setLanguage(lang){
+    currentLang = lang;
+    document.querySelectorAll('[data-translate]').forEach(el=>{
+      const key = el.getAttribute('data-translate');
+      const val = translations[lang][key];
+      if (typeof val === 'string') el.textContent = val;
+      else if (typeof val === 'function') el.textContent = val(1,1);
+    });
+    const sw = document.getElementById('lang-switcher');
+    if (sw) sw.textContent = translations[lang].lang_button;
+    document.querySelectorAll('[data-i18n-copy]').forEach(btn=>{
+      btn.textContent = translations[lang].copy;
+    });
+  }
+  function t(k,...args){
+    const v = translations[currentLang][k];
+    return typeof v === 'function' ? v(...args) : v;
+  }
 
-  // ---------- Utils / State ----------
-  function getOrderSn(){
-    const qs = new URLSearchParams(window.location.search);
-    return qs.get('order_sn') || qs.get('orderId') || qs.get('ordersn') || '';
-  }
-  function loadOrderState(orderSn){
-    try { return JSON.parse(localStorage.getItem('hb_voucher_state_' + orderSn)) || {}; }
-    catch { return {}; }
-  }
-  function saveOrderState(orderSn, state){
-    localStorage.setItem('hb_voucher_state_' + orderSn, JSON.stringify(state));
-  }
-  function ensureEntry(state, index){
-    if (!state[index]) state[index] = { status:'idle' };
-    return state[index];
-  }
+  // ---------- Utils / State ----------
+  function getOrderSn(){
+    const qs = new URLSearchParams(window.location.search);
+    return qs.get('order_sn') || qs.get('orderId') || qs.get('ordersn') || '';
+  }
+  function loadOrderState(orderSn){
+    try { return JSON.parse(localStorage.getItem('hb_voucher_state_' + orderSn)) || {}; }
+    catch { return {}; }
+  }
+  function saveOrderState(orderSn, state){
+    localStorage.setItem('hb_voucher_state_' + orderSn, JSON.stringify(state));
+  }
+  function ensureEntry(state, index){
+    if (!state[index]) state[index] = { status:'idle' };
+    return state[index];
+  }
 
-  // Robust mapping
-  function mapProductKeyFromName(name = "") {
-    const raw = (name || "").toLowerCase();
-    const letters = raw.replace(/[^a-z]/g, "");
-    const has = (re) => re.test(letters);
+  // Robust mapping
+  function mapProductKeyFromName(name = "") {
+    const raw = (name || "").toLowerCase();
+    const letters = raw.replace(/[^a-z]/g, "");
+    const has = (re) => re.test(letters);
 
-    if (has(/k+.*f+.*c+/)) return "kfc";
-    if (letters.includes("zus")) return "zus";
-    if (letters.includes("tealive")) return "tealive";
-    if (letters.includes("chagee")) return "chagee";
-    if (letters.includes("marrybrown")) return "marrybrown";
-    if (letters.includes("kenangan")) return "kenangan";
-    if (letters.includes("luckin")) return "luckin";
-    if (letters.includes("gigi")) return "gigi";
-    if (letters.includes("coffeebean")) return "coffeebean";
-    if (letters.includes("shein")) return "shein";
-    return "kfc";
-  }
+    if (has(/k+.*f+.*c+/)) return "kfc";
+    if (letters.includes("zus")) return "zus";
+    if (letters.includes("tealive")) return "tealive";
+    if (letters.includes("chagee")) return "chagee";
+    if (letters.includes("marrybrown")) return "marrybrown";
+    if (letters.includes("kenangan")) return "kenangan";
+    if (letters.includes("luckin")) return "luckin";
+    if (letters.includes("gigi")) return "gigi";
+    if (letters.includes("coffeebean")) return "coffeebean";
+    if (letters.includes("shein")) return "shein";
+    return "kfc";
+  }
 
-  // ---------- Copy helpers ----------
-  async function copyText(text, btn){
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      const old = btn.textContent;
-      btn.textContent = t('copied');
-      btn.disabled = true;
-      setTimeout(() => {
-        btn.textContent = t('copy');
-        btn.disabled = false;
-      }, 1200);
-    } catch {
-      prompt("Copy this value:", text);
-    }
-  }
-  function setCopyEnabled(index, enabled){
-    const phoneBtn = document.getElementById(`copy-phone-${index}`);
-    const otpBtn   = document.getElementById(`copy-otp-${index}`);
-    [phoneBtn, otpBtn].forEach(btn=>{
-      if (!btn) return;
-      btn.disabled = !enabled;
-      btn.classList.toggle('opacity-50', !enabled);
-      btn.classList.toggle('cursor-not-allowed', !enabled);
-    });
-  }
-  function attachCopyHandlers(index){
-    const phoneBtn = document.getElementById(`copy-phone-${index}`);
-    const otpBtn   = document.getElementById(`copy-otp-${index}`);
-    const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
+  // ---------- Copy helpers ----------
+  async function copyText(text, btn){
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const old = btn.textContent;
+      btn.textContent = t('copied');
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.textContent = t('copy');
+        btn.disabled = false;
+      }, 1200);
+    } catch {
+      prompt("Copy this value:", text);
+    }
+  }
+  function setCopyEnabled(index, enabled){
+    const phoneBtn = document.getElementById(`copy-phone-${index}`);
+    const otpBtn   = document.getElementById(`copy-otp-${index}`);
+    [phoneBtn, otpBtn].forEach(btn=>{
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.classList.toggle('opacity-50', !enabled);
+      btn.classList.toggle('cursor-not-allowed', !enabled);
+    });
+  }
+  function attachCopyHandlers(index){
+    const phoneBtn = document.getElementById(`copy-phone-${index}`);
+    const otpBtn   = document.getElementById(`copy-otp-${index}`);
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
 
-    if (phoneBtn) {
-      phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
-    }
-    if (otpBtn) {
-      otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
-    }
-    // start disabled; enable only when OTP arrives
-    setCopyEnabled(index, false);
-  }
+    if (phoneBtn) {
+      phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
+    }
+    if (otpBtn) {
+      otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
+    }
+    // start disabled; enable only when OTP arrives
+    setCopyEnabled(index, false);
+  }
 
-  // ---------- Fetch order + render ----------
-  async function fetchOrderDetails(orderSn){
-    const res = await fetch(`${backendUrl}/get-order-details`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shopeeId: orderSn })
-    });
-    const data = await res.json().catch(()=>({}));
-    if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
-    return data; // {success, items:[{name, quantity, price}]}
-  }
+  // ---------- Fetch order + render ----------
+  async function fetchOrderDetails(orderSn){
+    const res = await fetch(`${backendUrl}/get-order-details`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shopeeId: orderSn })
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
+    return data; // {success, items:[{name, quantity, price}]}
+  }
 
-  function injectRedemptionUI(container, index){
-    container.innerHTML = `
-      <div class="mb-4 text-left">
-        <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">${t('phone_label')}</label>
-        <div class="flex items-center gap-2 mt-1">
-          <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
-          <button id="copy-phone-${index}" data-i18n-copy
-                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-            ${t('copy')}
-          </button>
-        </div>
-      </div>
-      <div class="mb-2 text-left">
-        <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">${t('otp_label')}</label>
-        <div class="flex items-center gap-2 mt-1">
-          <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
-          <button id="copy-otp-${index}" data-i18n-copy
-                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-            ${t('copy')}
-          </button>
-        </div>
-      </div>
-      <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
-    `;
-    attachCopyHandlers(index);
-  }
+  function injectRedemptionUI(container, index){
+    container.innerHTML = `
+      <div class="mb-4 text-left">
+        <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">${t('phone_label')}</label>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
+          <button id="copy-phone-${index}" data-i18n-copy
+                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            ${t('copy')}
+          </button>
+        </div>
+      </div>
+      <div class="mb-2 text-left">
+        <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">${t('otp_label')}</label>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
+          <button id="copy-otp-${index}" data-i18n-copy
+                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            ${t('copy')}
+          </button>
+        </div>
+      </div>
+      <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
+    `;
+    attachCopyHandlers(index);
+  }
 
-  function setBtnState(btn, mode){ // 'idle' | 'redeeming' | 'redeemed'
-    if (!btn) return;
-    if (mode === 'redeeming') {
-      btn.disabled = true;
-      btn.textContent = t('redeeming_button');
-      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
-      btn.classList.add('bg-gray-400','cursor-not-allowed');
-    } else if (mode === 'redeemed') {
-      btn.disabled = true;
-      btn.textContent = t('redeemed_button');
-      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
-      btn.classList.add('bg-green-600','text-white');
-    } else {
-      btn.disabled = false;
-      btn.textContent = t('redeem_button');
-      btn.classList.remove('bg-gray-400','cursor-not-allowed','bg-green-600');
-      btn.classList.add('bg-blue-600','hover:bg-blue-700','text-white');
-    }
-    btn.dataset.mode = mode;
-  }
+  function setBtnState(btn, mode){ // 'idle' | 'redeeming' | 'redeemed'
+    if (!btn) return;
+    if (mode === 'redeeming') {
+      btn.disabled = true;
+      btn.textContent = t('redeeming_button');
+      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
+      btn.classList.add('bg-gray-400','cursor-not-allowed');
+    } else if (mode === 'redeemed') {
+      btn.disabled = true;
+      btn.textContent = t('redeemed_button');
+      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
+      btn.classList.add('bg-green-600','text-white');
+    } else {
+      btn.disabled = false;
+      btn.textContent = t('redeem_button');
+      btn.classList.remove('bg-gray-400','cursor-not-allowed','bg-green-600');
+      btn.classList.add('bg-blue-600','hover:bg-blue-700','text-white');
+    }
+    btn.dataset.mode = mode;
+  }
 
-  // --- FIXED: declare interval first, assign later ---
-  function startTimer(index, endTs, timerEl){
-    let iv; // declare first so it's in scope for tick()
-    function tick(){
-      const remain = Math.max(0, Math.floor((endTs - Date.now())/1000));
-      const mm = Math.floor(remain/60);
-      const ss = ('0'+(remain%60)).slice(-2);
-      timerEl.textContent = `${t('status_waiting_otp')} ${mm}:${ss}`;
-      if (remain <= 0 && iv) clearInterval(iv);
-    }
-    tick();
-    iv = setInterval(tick, 1000);
-    return iv;
-  }
+  // --- FIXED: declare interval first, assign later ---
+  function startTimer(index, endTs, timerEl){
+    let iv; // declare first so it's in scope for tick()
+    function tick(){
+      const remain = Math.max(0, Math.floor((endTs - Date.now())/1000));
+      const mm = Math.floor(remain/60);
+      const ss = ('0'+(remain%60)).slice(-2);
+      timerEl.textContent = `${t('status_waiting_otp')} ${mm}:${ss}`;
+      if (remain <= 0 && iv) clearInterval(iv);
+    }
+    tick();
+    iv = setInterval(tick, 1000);
+    return iv;
+  }
 
-  // --- FIXED: declare pollIv first; guard clears ---
-  function pollForOtp(orderSn, state, index, btn, timerIv){
-    const otpBox  = document.getElementById(`otp-box-${index}`);
-    const timerEl = document.getElementById(`timer-${index}`);
+  // --- FIXED: declare pollIv first; guard clears ---
+  function pollForOtp(orderSn, state, index, btn, timerIv){
+    const otpBox  = document.getElementById(`otp-box-${index}`);
+    const timerEl = document.getElementById(`timer-${index}`);
 
-    let pollIv; // declare first
+    let pollIv; // declare first
 
-    const poll = async () => {
-      const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
+    const poll = async () => {
+      const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
 
-      if (remain <= 0) {
-        if (pollIv) clearInterval(pollIv);
-        if (timerIv) clearInterval(timerIv);
-        timerEl.textContent = t('status_timeout');
-        setBtnState(btn, 'idle');
-        state.status = 'idle';
-        saveOrderState(orderSn, orderState);
-        setCopyEnabled(index, false);
-        return;
-      }
+      if (remain <= 0) {
+        if (pollIv) clearInterval(pollIv);
+        if (timerIv) clearInterval(timerIv);
+        timerEl.textContent = t('status_timeout');
+        setBtnState(btn, 'idle');
+        state.status = 'idle';
+        saveOrderState(orderSn, orderState);
+        setCopyEnabled(index, false);
+        return;
+      }
 
-      try {
-        const res = await fetch(`${backendUrl}/check-otp`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: state.provider, providerOrderId: state.providerOrderId })
-        });
-        const data = await res.json().catch(()=>({}));
+      try {
+        const res = await fetch(`${backendUrl}/check-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: state.provider, providerOrderId: state.providerOrderId })
+        });
+        const data = await res.json().catch(()=>({}));
 
-        if (res.ok && data.otp) {
-          otpBox.textContent = data.otp;
-          state.otp = data.otp;
-          state.status = 'redeemed';
-          saveOrderState(orderSn, orderState);
+        if (res.ok && data.otp) {
+          otpBox.textContent = data.otp;
+          state.otp = data.otp;
+          state.status = 'redeemed';
+          saveOrderState(orderSn, orderState);
 
-          if (pollIv) clearInterval(pollIv);
-          if (timerIv) clearInterval(timerIv);
-          timerEl.textContent = `✅ ${t('status_received')}`;
-          setBtnState(btn, 'redeemed');
-          setCopyEnabled(index, true);
+          if (pollIv) clearInterval(pollIv);
+          if (timerIv) clearInterval(timerIv);
+          timerEl.textContent = `✅ ${t('status_received')}`;
+          setBtnState(btn, 'redeemed');
+          setCopyEnabled(index, true);
 
-          // best-effort notify
-          fetch(`${backendUrl}/confirm-redemption`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderSn })
-          }).catch(()=>{});
-        }
-      } catch (_) {}
-    };
+          // best-effort notify
+          fetch(`${backendUrl}/confirm-redemption`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shopeeId: orderSn })
+          }).catch(()=>{});
+        }
+      } catch (_) {}
+    };
 
-    pollIv = setInterval(poll, 5000);
-    poll(); // first tick
-  }
+    pollIv = setInterval(poll, 5000);
+    poll(); // first tick
+  }
 
-  async function requestPhoneNumber(orderSn, productKey, index, state, btn){
-    const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
-    const timerEl  = document.getElementById(`timer-${index}`);
+  async function requestPhoneNumber(orderSn, productKey, index, state, btn){
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
+    const timerEl  = document.getElementById(`timer-${index}`);
 
-    let attempt = 0;
-    const maxAttempts = 3;
+    let attempt = 0;
+    const maxAttempts = 3;
 
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        const res = await fetch(`${backendUrl}/get-phone`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId: orderSn, product: productKey, isRetry: attempt > 1 })
-        });
-        const data = await res.json().catch(()=>({}));
-        if (!res.ok) throw new Error(data.message || 'provider error');
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        const res = await fetch(`${backendUrl}/get-phone`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopeeId: orderSn, product: productKey, isRetry: attempt > 1 })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) throw new Error(data.message || 'provider error');
 
-        // success
-        state.phoneNumber = data.phoneNumber;
-        state.provider = data.provider;
-        state.providerOrderId = data.providerOrderId;
-        state.countdownEnd = Date.now() + 600000; // 10 mins
-        state.status = 'pending';
-        saveOrderState(orderSn, orderState);
+        // success
+        state.phoneNumber = data.phoneNumber;
+        state.provider = data.provider;
+        state.providerOrderId = data.providerOrderId;
+        state.countdownEnd = Date.now() + 600000; // 10 mins
+        state.status = 'pending';
+        saveOrderState(orderSn, orderState);
 
-        phoneBox.textContent = data.phoneNumber || '—';
+        phoneBox.textContent = data.phoneNumber || '—';
 
-        // start polling
-        setBtnState(btn, 'redeeming');
-        const iv = startTimer(index, state.countdownEnd, timerEl);
-        pollForOtp(orderSn, state, index, btn, iv);
-        return;
-      } catch (e) {
-        if (attempt < maxAttempts) {
-          phoneBox.textContent = t('getting_number_retrying', attempt, maxAttempts);
-          await new Promise(r=>setTimeout(r, 2500));
-          continue;
-        }
-        phoneBox.textContent = `Error: ${t('error_get_number')}`;
-        setBtnState(btn, 'idle');
-        state.status = 'idle';
-        saveOrderState(orderSn, orderState);
-        return;
-      }
-    }
-  }
+        // start polling
+        setBtnState(btn, 'redeeming');
+        const iv = startTimer(index, state.countdownEnd, timerEl);
+        pollForOtp(orderSn, state, index, btn, iv);
+        return;
+      } catch (e) {
+        if (attempt < maxAttempts) {
+          phoneBox.textContent = t('getting_number_retrying', attempt, maxAttempts);
+          await new Promise(r=>setTimeout(r, 2500));
+          continue;
+        }
+        phoneBox.textContent = `Error: ${t('error_get_number')}`;
+        setBtnState(btn, 'idle');
+        state.status = 'idle';
+        saveOrderState(orderSn, orderState);
+        return;
+      }
+    }
+  }
 
-  // ---------- Render flow ----------
-  const orderSn = getOrderSn();
-  const statusText = document.getElementById('status-text');
-  const orderSnDisplay = document.getElementById('order-sn-display');
-  const orderDetailsContainer = document.getElementById('order-details-container');
-  const productsContainer = document.getElementById('products-container');
+  // ---------- Render flow ----------
+  const orderSn = getOrderSn();
+  const statusText = document.getElementById('status-text');
+  const orderSnDisplay = document.getElementById('order-sn-display');
+  const orderDetailsContainer = document.getElementById('order-details-container');
+  const productsContainer = document.getElementById('products-container');
 
-  let orderState = loadOrderState(orderSn); // { [index]: {...} }
+  let orderState = loadOrderState(orderSn); // { [index]: {...} }
 
-  async function boot(){
-    setLanguage('en');
-    document.getElementById('lang-switcher').addEventListener('click', () => {
-      setLanguage(currentLang === 'en' ? 'ms' : 'en');
-    });
+  async function boot(){
+    setLanguage('en');
+    document.getElementById('lang-switcher').addEventListener('click', () => {
+      setLanguage(currentLang === 'en' ? 'ms' : 'en');
+    });
 
-    if (!orderSn) {
-      statusText.textContent = "Error: No order_sn provided.";
-      return;
-    }
+    if (!orderSn) {
+      statusText.textContent = "Error: No order_sn provided.";
+      return;
+    }
 
-    orderSnDisplay.textContent = orderSn;
-    orderDetailsContainer.classList.remove('hidden');
+    orderSnDisplay.textContent = orderSn;
+    orderDetailsContainer.classList.remove('hidden');
 
-    try {
-      const data = await fetchOrderDetails(orderSn);
-      statusText.textContent = t('status_ready');
+    try {
+      const data = await fetchOrderDetails(orderSn);
+      statusText.textContent = t('status_ready');
 
-      // expand items by quantity
-      const items = [];
-      (data.items || []).forEach(it => {
-        const qty = Number(it.quantity || 1) || 1;
-        for (let i=0;i<qty;i++){
-          items.push({
-            name: it.name || 'Item',
-            productKey: mapProductKeyFromName(it.name || '')
-          });
-        }
-      });
+      // expand items by quantity
+      const items = [];
+      (data.items || []).forEach(it => {
+        const qty = Number(it.quantity || 1) || 1;
+        for (let i=0;i<qty;i++){
+          items.push({
+            name: it.name || 'Item',
+            productKey: mapProductKeyFromName(it.name || '')
+          });
+        }
+      });
 
-      productsContainer.innerHTML = '';
-      items.forEach((item, index) => {
-        const card = document.createElement('div');
-        card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
-        card.innerHTML = `
-          <div class="flex justify-between items-center">
-            <div>
-              <h3 class="font-bold text-lg">${item.name}</h3>
-            </div>
-            <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">${t('redeem_button')}</button>
-          </div>
-          <div id="details-container-${index}" class="mt-4"></div>
-        `;
-        productsContainer.appendChild(card);
+      productsContainer.innerHTML = '';
+      items.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <div>
+              <h3 class="font-bold text-lg">${item.name}</h3>
+            </div>
+            <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">${t('redeem_button')}</button>
+          </div>
+          <div id="details-container-${index}" class="mt-4"></div>
+        `;
+        productsContainer.appendChild(card);
 
-        const detailsContainer = document.getElementById(`details-container-${index}`);
-        injectRedemptionUI(detailsContainer, index);
+        const detailsContainer = document.getElementById(`details-container-${index}`);
+        injectRedemptionUI(detailsContainer, index);
 
-        const btn = document.getElementById(`redeem-btn-${index}`);
-        btn.addEventListener('click', async () => {
-          if (btn.dataset.mode === 'redeeming' || btn.dataset.mode === 'redeemed') return;
-          const st = ensureEntry(orderState, index);
-          setBtnState(btn, 'redeeming');
-          await requestPhoneNumber(orderSn, item.productKey, index, st, btn);
-        });
+        const btn = document.getElementById(`redeem-btn-${index}`);
+        btn.addEventListener('click', async () => {
+          if (btn.dataset.mode === 'redeeming' || btn.dataset.mode === 'redeemed') return;
+          const st = ensureEntry(orderState, index);
+            // --- THIS IS THE PATCH ---
+            st.productName = item.name;
+            // -------------------------
+          setBtnState(btn, 'redeeming');
+          await requestPhoneNumber(orderSn, item.productKey, index, st, btn);
+        });
 
-        // restore from localStorage (if any)
-        const st = ensureEntry(orderState, index);
-        restoreVoucherUI(orderSn, index, st, btn);
-      });
+        // restore from localStorage (if any)
+        const st = ensureEntry(orderState, index);
+        restoreVoucherUI(orderSn, index, st, btn);
+      });
 
-    } catch (e) {
-      statusText.textContent = `${t('status_failed_fetch')} (${e.message})`;
-    }
-  }
+    } catch (e) {
+      statusText.textContent = `${t('status_failed_fetch')} (${e.message})`;
+    }
+  }
 
-  function restoreVoucherUI(orderSn, index, state, btn){
-    const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
-    const timerEl  = document.getElementById(`timer-${index}`);
+  function restoreVoucherUI(orderSn, index, state, btn){
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
+    const timerEl  = document.getElementById(`timer-${index}`);
 
-    if (state.phoneNumber) phoneBox.textContent = state.phoneNumber;
+    if (state.phoneNumber) phoneBox.textContent = state.phoneNumber;
 
-    if (state.status === 'redeemed' && state.otp) {
-      otpBox.textContent = state.otp;
-      setBtnState(btn, 'redeemed');
-      timerEl.textContent = `✅ ${t('status_received')}`;
-      setCopyEnabled(index, true);
-      return;
-    }
+    if (state.status === 'redeemed' && state.otp) {
+      otpBox.textContent = state.otp;
+      setBtnState(btn, 'redeemed');
+      timerEl.textContent = `✅ ${t('status_received')}`;
+      setCopyEnabled(index, true);
+      return;
+    }
 
-    if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
-      setBtnState(btn, 'redeeming');
-      const iv = startTimer(index, state.countdownEnd, timerEl);
-      setCopyEnabled(index, false);
-      pollForOtp(orderSn, state, index, btn, iv);
-    } else {
-      setBtnState(btn, 'idle');
-      setCopyEnabled(index, false);
-    }
-  }
+    if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
+      setBtnState(btn, 'redeeming');
+      const iv = startTimer(index, state.countdownEnd, timerEl);
+      setCopyEnabled(index, false);
+      pollForOtp(orderSn, state, index, btn, iv);
+    } else {
+      setBtnState(btn, 'idle');
+      setCopyEnabled(index, false);
+    }
+  }
 
-  window.addEventListener('load', boot);
+  window.addEventListener('load', boot);
 })();
 </script>
 </body>
