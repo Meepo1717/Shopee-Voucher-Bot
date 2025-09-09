@@ -37,353 +37,549 @@
   </div>
 
   <!-- ================== APPLICATION SCRIPT ================== -->
-  <script>
-  (() => {
-    function showFatal(msg, err) {
-      console.error('[HavicBot OTP] ', msg, err || '');
-      const c = document.querySelector('.w-full.max-w-xl.bg-white');
-      if (c) {
-        c.innerHTML = `
-          <div class="text-center">
-            <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;">Voucher Redemption</h1>
-            <p class="text-red-600 font-semibold">An error occurred:</p>
-            <pre class="text-left bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg overflow-auto mt-2 whitespace-pre-wrap">${String(msg)}</pre>
-          </div>`;
-      } else {
-        document.body.innerHTML = `<pre>${String(msg)}</pre>`;
+  <script type="module">
+  // ----- Firebase (optional; skip gracefully if not configured) -----
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, getDocs, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  // 1) Fill these with your Firebase web app values
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    // Optional but recommended:
+    // storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    // messagingSenderId: "...",
+    // appId: "1:...:web:..."
+  };
+
+  let db = null;
+  try {
+    if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      console.log("[HavicBot OTP] Firebase initialized");
+    } else {
+      console.warn("[HavicBot OTP] Firebase config missing; running without Firestore persistence");
+    }
+  } catch (e) {
+    console.warn("[HavicBot OTP] Firebase init failed; running without Firestore", e);
+    db = null;
+  }
+
+  async function fbGetAllCards(orderId) {
+    if (!db) return null;
+    try {
+      const colRef = collection(db, "orders", orderId, "cards");
+      const qs = await getDocs(colRef);
+      const map = {};
+      qs.forEach(d => { map[d.id] = d.data(); });
+      return map;
+    } catch (e) {
+      console.warn("fbGetAllCards error", e);
+      return null;
+    }
+  }
+
+  async function fbSetCard(orderId, index, data) {
+    if (!db) return;
+    try {
+      const orderRef = doc(db, "orders", orderId);
+      await setDoc(orderRef, { orderId, updatedAt: serverTimestamp() }, { merge: true });
+      const cardRef = doc(db, "orders", orderId, "cards", String(index));
+      await setDoc(cardRef, { ...data, index, updatedAt: serverTimestamp() }, { merge: true });
+    } catch (e) {
+      console.warn("fbSetCard error", e);
+    }
+  }
+
+  // ---------------------------------------------------------------
+
+  function showFatal(msg, err) {
+    console.error("[HavicBot OTP] ", msg, err || "");
+    const c = document.querySelector(".w-full.max-w-xl.bg-white");
+    if (c) {
+      c.innerHTML = `
+        <div class="text-center">
+          <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;">Voucher Redemption</h1>
+          <p class="text-red-600 font-semibold">An error occurred:</p>
+          <pre class="text-left bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg overflow-auto mt-2 whitespace-pre-wrap">${String(msg)}</pre>
+        </div>`;
+    } else {
+      document.body.innerHTML = \`<pre>\${String(msg)}</pre>\`;
+    }
+  }
+
+  try {
+    // --- Translations ---
+    const translations = {
+      en: {
+        title: "Voucher Redemption",
+        status_fetching: "Fetching your order details...",
+        status_ready: "Your products are ready. Please redeem them below.",
+        status_failed_fetch: "Failed to fetch order details.",
+        order_sn_label: "Order SN",
+        redeem_button: "Redeem",
+        redeeming_button: "Redeeming...",
+        phone_label: "Generated Phone Number",
+        otp_label: "Verification Code (OTP)",
+        status_waiting_otp: "Waiting for OTP...",
+        status_received: "OTP Received!",
+        status_timeout: "OTP not received in time.",
+        lang_button: "Bahasa Melayu"
+      },
+      ms: {
+        title: "Penebusan Baucar",
+        status_fetching: "Memuatkan butiran pesanan anda...",
+        status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
+        status_failed_fetch: "Gagal memuatkan butiran pesanan.",
+        order_sn_label: "SN Pesanan",
+        redeem_button: "Tebus",
+        redeeming_button: "Menebus...",
+        phone_label: "Nombor Telefon Dijana",
+        otp_label: "Kod Pengesahan (OTP)",
+        status_waiting_otp: "Menunggu OTP...",
+        status_received: "OTP Diterima!",
+        status_timeout: "OTP tidak diterima dalam masa.",
+        lang_button: "English"
+      }
+    };
+
+    let currentLang = "en";
+    function setLanguage(lang) {
+      try {
+        currentLang = lang;
+        document.querySelectorAll("[data-translate]").forEach(el => {
+          const key = el.getAttribute("data-translate");
+          if (translations[lang] && translations[lang][key]) {
+            el.textContent = translations[lang][key];
+          }
+        });
+        const sw = document.getElementById("lang-switcher");
+        if (sw) sw.textContent = translations[lang]?.lang_button || "Language";
+      } catch (e) { console.warn("Lang switch failed", e); }
+    }
+
+    // --- Core Application Logic ---
+    const backendUrl = "https://havicbot-backend.onrender.com";
+
+    function getOrderIdFromUrl() {
+      const qs = new URLSearchParams(window.location.search);
+      return qs.get("orderId") || qs.get("order_sn") || qs.get("ordersn") || qs.get("orderSN");
+    }
+
+    // Brand slug candidates for backend
+    function productSlugCandidates(name = "") {
+      const n = name.toLowerCase();
+      if (n.includes("zus")) return ["zus_coffee", "zus"];
+      if (/\bkfc\b/i.test(name)) return ["kfc"];
+      if (n.includes("marrybrown") || n.includes("marybrown")) return ["marrybrown", "marybrown", "mb"];
+      if (n.includes("chagee")) return ["chagee"];
+      if (n.includes("tealive")) return ["tealive"];
+      if (n.includes("gigi")) return ["gigi_coffee", "gigi"];
+      if (n.includes("coffee bean") || n.includes("cb&tl") || n.includes("coffee bean & tea leaf"))
+        return ["coffee_bean", "coffeebean", "coffee_bean_tea_leaf"];
+      if (n.includes("kenangan")) return ["kenangan_coffee", "kenangan"];
+      if (n.includes("luckin")) return ["luckin_coffee", "luckin"];
+      if (n.includes("shein")) return ["shein"];
+      return ["shopee"];
+    }
+
+    // Normalize items from backend or Shopee escrow shape
+    function normalizeItems(items = []) {
+      return items.map(it => {
+        const name = it.name ?? it.item_name ?? it.title ?? "";
+        const itemId = it.itemId ?? it.item_id ?? it.id ?? "";
+        const quantity = Number(it.quantity ?? it.quantity_purchased ?? 1) || 1;
+        const productKey = it.productKey ?? productSlugCandidates(name)[0];
+        return { name, itemId, quantity, productKey };
+      });
+    }
+
+    // ---------- Persistence (localStorage) ----------
+    function storageKey(orderId) {
+      return `havicbot_otp_state_v1_${orderId}`;
+    }
+    function loadState(orderId) {
+      try {
+        const raw = localStorage.getItem(storageKey(orderId));
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+    function saveState(orderId, state) {
+      try { localStorage.setItem(storageKey(orderId), JSON.stringify(state)); } catch {}
+    }
+    function ensureState(orderId) {
+      let s = loadState(orderId);
+      if (!s) {
+        s = { orderId, createdAt: Date.now(), cards: {}, usedNumbers: [], usedProviderOrders: [] };
+        saveState(orderId, s);
+      }
+      return s;
+    }
+    function updateCardState(orderId, index, patch) {
+      const s = ensureState(orderId);
+      s.cards[index] = { ...(s.cards[index] || {}), ...patch };
+      saveState(orderId, s);
+    }
+
+    // Unique id per voucher card
+    function makeInstanceId() {
+      const buf = new Uint32Array(3);
+      (window.crypto || window.msCrypto).getRandomValues(buf);
+      return `inst_${Date.now().toString(36)}_${buf[0].toString(36)}${buf[1].toString(36)}${buf[2].toString(36)}`;
+    }
+
+    // Track used numbers/provider order IDs to avoid duplicates
+    let usedNumbers = new Set();
+    let usedProviderOrders = new Set();
+    const cardState = {}; // index -> { instanceId }
+
+    async function fetchOrderDetails() {
+      const orderId = getOrderIdFromUrl();
+      const statusText = document.getElementById("status-text");
+      const orderDetailsContainer = document.getElementById("order-details-container");
+      const orderSnDisplay = document.getElementById("order-sn-display");
+
+      if (statusText) statusText.textContent = translations[currentLang]?.status_fetching || "Loading...";
+
+      if (!orderId) {
+        if (statusText) statusText.textContent = "Error: Order_ID invalid. Return to previous page.";
+        console.error("Missing orderId in URL. Expected ?orderId= or ?order_sn=");
+        return;
+      }
+
+      // Rehydrate used numbers sets from localStorage
+      const persisted = ensureState(orderId);
+      usedNumbers = new Set(persisted.usedNumbers || []);
+      usedProviderOrders = new Set(persisted.usedProviderOrders || []);
+
+      try {
+        const res = await fetch(`${backendUrl}/get-order-details`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopeeId: orderId })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || `Backend responded ${res.status}`);
+        }
+
+        if (statusText) statusText.textContent = translations[currentLang]?.status_ready || "Ready.";
+        if (orderSnDisplay) orderSnDisplay.textContent = data.order_sn || orderId;
+        if (orderDetailsContainer) orderDetailsContainer.classList.remove("hidden");
+
+        const items = normalizeItems(Array.isArray(data.items) ? data.items : []);
+        await renderProducts(orderId, items); // async to allow Firebase hydration
+      } catch (err) {
+        const msg = `${translations[currentLang]?.status_failed_fetch || "Failed to fetch"} (${err.message})`;
+        if (statusText) statusText.textContent = msg;
+        console.error("get-order-details failed", err);
       }
     }
 
-    try {
-      // --- Translations ---
-      const translations = {
-        en: {
-          title: "Voucher Redemption",
-          status_fetching: "Fetching your order details...",
-          status_ready: "Your products are ready. Please redeem them below.",
-          status_failed_fetch: "Failed to fetch order details.",
-          order_sn_label: "Order SN",
-          product_id_label: "Product ID:",
-          redeem_button: "Redeem",
-          redeeming_button: "Redeeming...",
-          phone_label: "Generated Phone Number",
-          otp_label: "Verification Code (OTP)",
-          status_waiting_otp: "Waiting for OTP...",
-          status_received: "OTP Received!",
-          status_timeout: "OTP not received in time.",
-          lang_button: "Bahasa Melayu"
-        },
-        ms: {
-          title: "Penebusan Baucar",
-          status_fetching: "Memuatkan butiran pesanan anda...",
-          status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
-          status_failed_fetch: "Gagal memuatkan butiran pesanan.",
-          order_sn_label: "SN Pesanan",
-          product_id_label: "ID Produk:",
-          redeem_button: "Tebus",
-          redeeming_button: "Menebus...",
-          phone_label: "Nombor Telefon Dijana",
-          otp_label: "Kod Pengesahan (OTP)",
-          status_waiting_otp: "Menunggu OTP...",
-          status_received: "OTP Diterima!",
-          status_timeout: "OTP tidak diterima dalam masa.",
-          lang_button: "English"
-        }
-      };
+    async function renderProducts(orderId, items) {
+      const container = document.getElementById("products-container");
+      if (!container) return;
 
-      let currentLang = 'en';
-      function setLanguage(lang) {
-        try {
-          currentLang = lang;
-          document.querySelectorAll('[data-translate]').forEach(el => {
-            const key = el.getAttribute('data-translate');
-            if (translations[lang] && translations[lang][key]) {
-              el.textContent = translations[lang][key];
-            }
-          });
-          const sw = document.getElementById('lang-switcher');
-          if (sw) sw.textContent = translations[lang]?.lang_button || 'Language';
-        } catch (e) { console.warn('Lang switch failed', e); }
+      container.innerHTML = "";
+
+      // Expand by quantity (each item instance = its own card)
+      const expanded = [];
+      items.forEach(item => {
+        for (let i = 0; i < (item.quantity || 1); i++) expanded.push({ ...item });
+      });
+
+      if (!expanded.length) {
+        const p = document.createElement("p");
+        p.className = "text-center text-gray-600";
+        p.textContent = "No items found for this order.";
+        container.appendChild(p);
+        return;
       }
 
-      // --- Core Application Logic ---
-      const backendUrl = "https://havicbot-backend.onrender.com";
+      const persisted = ensureState(orderId);
+      const fbCards = await fbGetAllCards(orderId) || {}; // { "0": {...}, "1": {...} }
 
-      function getOrderIdFromUrl() {
-        const qs = new URLSearchParams(window.location.search);
-        return qs.get('orderId') || qs.get('order_sn') || qs.get('ordersn') || qs.get('orderSN');
-      }
-
-      // Brand slug candidates for backend
-      function productSlugCandidates(name = "") {
-        const n = name.toLowerCase();
-        if (n.includes('zus')) return ['zus_coffee', 'zus'];
-        if (/\bkfc\b/i.test(name)) return ['kfc'];
-        if (n.includes('marrybrown') || n.includes('marybrown')) return ['marrybrown', 'marybrown', 'mb'];
-        if (n.includes('chagee')) return ['chagee'];
-        if (n.includes('tealive')) return ['tealive'];
-        if (n.includes('gigi')) return ['gigi_coffee', 'gigi'];
-        if (n.includes('coffee bean') || n.includes('cb&tl') || n.includes('coffee bean & tea leaf'))
-          return ['coffee_bean', 'coffeebean', 'coffee_bean_tea_leaf'];
-        if (n.includes('kenangan')) return ['kenangan_coffee', 'kenangan'];
-        if (n.includes('luckin')) return ['luckin_coffee', 'luckin'];
-        if (n.includes('shein')) return ['shein'];
-        return ['shopee'];
-      }
-
-      // Normalize items from backend or Shopee escrow shape
-      function normalizeItems(items = []) {
-        return items.map(it => {
-          const name = it.name ?? it.item_name ?? it.title ?? '';
-          const itemId = it.itemId ?? it.item_id ?? it.id ?? '';
-          const quantity = Number(it.quantity ?? it.quantity_purchased ?? 1) || 1;
-          const productKey = it.productKey ?? productSlugCandidates(name)[0];
-          return { name, itemId, quantity, productKey };
-        });
-      }
-
-      // Unique id per voucher card
-      function makeInstanceId() {
-        const buf = new Uint32Array(3);
-        (window.crypto || window.msCrypto).getRandomValues(buf);
-        return `inst_${Date.now().toString(36)}_${buf[0].toString(36)}${buf[1].toString(36)}${buf[2].toString(36)}`;
-      }
-
-      // Track used numbers/provider order IDs to avoid duplicates
-      const usedNumbers = new Set();
-      const usedProviderOrders = new Set();
-      const cardState = {}; // index -> { instanceId }
-
-      async function fetchOrderDetails() {
-        const orderId = getOrderIdFromUrl();
-        const statusText = document.getElementById('status-text');
-        const orderDetailsContainer = document.getElementById('order-details-container');
-        const orderSnDisplay = document.getElementById('order-sn-display');
-
-        if (statusText) statusText.textContent = translations[currentLang]?.status_fetching || 'Loading...';
-
-        if (!orderId) {
-          if (statusText) statusText.textContent = "Error: Order_ID invalid. Return to previous page.";
-          console.error('Missing orderId in URL. Expected ?orderId= or ?order_sn=');
-          return;
-        }
-
-        try {
-          const res = await fetch(`${backendUrl}/get-order-details`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderId })
-          });
-          const data = await res.json().catch(() => ({}));
-
-          if (!res.ok || !data.success) {
-            throw new Error(data.message || `Backend responded ${res.status}`);
-          }
-
-          if (statusText) statusText.textContent = translations[currentLang]?.status_ready || 'Ready.';
-          if (orderSnDisplay) orderSnDisplay.textContent = data.order_sn || orderId;
-          if (orderDetailsContainer) orderDetailsContainer.classList.remove('hidden');
-
-          const items = normalizeItems(Array.isArray(data.items) ? data.items : []);
-          renderProducts(orderId, items);
-        } catch (err) {
-          const msg = `${translations[currentLang]?.status_failed_fetch || 'Failed to fetch'} (${err.message})`;
-          if (statusText) statusText.textContent = msg;
-          console.error('get-order-details failed', err);
-        }
-      }
-
-      function renderProducts(orderId, items) {
-        const container = document.getElementById('products-container');
-        if (!container) return;
-
-        container.innerHTML = '';
-
-        // Expand by quantity (each item instance = its own card)
-        const expanded = [];
-        items.forEach(item => {
-          for (let i = 0; i < (item.quantity || 1); i++) expanded.push({ ...item });
+      expanded.forEach((item, index) => {
+        // Determine or create a stable instanceId for this index
+        const existingLocal = (persisted.cards && persisted.cards[index]) || null;
+        const instanceId = existingLocal?.instanceId || makeInstanceId();
+        cardState[index] = { instanceId };
+        updateCardState(orderId, index, {
+          instanceId,
+          itemName: item.name,
+          itemId: item.itemId || "",
+          productKey: item.productKey
         });
 
-        if (!expanded.length) {
-          const p = document.createElement('p');
-          p.className = 'text-center text-gray-600';
-          p.textContent = 'No items found for this order.';
-          container.appendChild(p);
-          return;
-        }
-
-        expanded.forEach((item, index) => {
-          const instanceId = makeInstanceId();
-          cardState[index] = { instanceId };
-
-          const card = document.createElement('div');
-          card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
-          card.innerHTML = `
-            <div class="flex justify-between items-center">
-              <div>
-                <h3 class="font-bold text-lg">${item.name || 'Item'}</h3>
-              </div>
-              <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>
+        // Build card
+        const card = document.createElement("div");
+        card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <div>
+              <h3 class="font-bold text-lg">${item.name || "Item"}</h3>
             </div>
-            <div id="details-container-${index}" class="mt-4"></div>
-          `;
-          container.appendChild(card);
-
-          const btn = document.getElementById(`redeem-btn-${index}`);
-          btn?.addEventListener('click', async () => {
-            btn.disabled = true;
-            btn.textContent = translations[currentLang]?.redeeming_button || 'Redeeming...';
-            btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-
-            const detailsContainer = document.getElementById(`details-container-${index}`);
-            injectRedemptionUI(detailsContainer, index);
-
-            const candidates = item.productKey ? [item.productKey] : productSlugCandidates(item.name);
-            await requestPhoneNumberWithFallback(orderId, candidates, index);
-          });
-        });
-      }
-
-      function injectRedemptionUI(container, index) {
-        if (!container) return;
-        container.innerHTML = `
-          <div class="mb-4 text-left">
-            <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
-            <div class="flex items-center gap-2 mt-1">
-              <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
-            </div>
+            <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>
           </div>
-          <div class="mb-2 text-left">
-            <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
-            <div class="flex items-center gap-2 mt-1">
-              <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
-            </div>
-          </div>
-          <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
+          <div id="details-container-${index}" class="mt-4"></div>
         `;
-      }
+        container.appendChild(card);
 
-      async function requestPhoneNumberWithFallback(orderId, candidates, index) {
-        const phoneBox = document.getElementById(`phone-box-${index}`);
-        if (!phoneBox) return;
+        const btn = document.getElementById(`redeem-btn-${index}`);
 
-        const { instanceId } = cardState[index] || { instanceId: makeInstanceId() };
-        let lastErr = null;
+        // Prefer Firebase persisted result (cross-device), else localStorage
+        const fbCard = fbCards[String(index)];
+        const haveFirebase = fbCard && fbCard.phoneNumber && (fbCard.otp || fbCard.providerOrderId);
 
-        // Try each slug; for each, retry once if number duplicates
-        for (const productKey of candidates) {
-          for (let attempt = 0; attempt < 2; attempt++) {
-            try {
-              const res = await fetch(`${backendUrl}/get-phone`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  shopeeId: orderId,
-                  product: productKey,
-                  isRetry: attempt > 0,
-                  forceNew: true,
-                  instanceId
-                })
-              });
-              const data = await res.json().catch(() => ({}));
+        const local = existingLocal;
+        const haveLocal = local && local.phoneNumber;
 
-              if (!res.ok) {
-                const msg = (data && data.message) ? String(data.message).toLowerCase() : '';
-                if (msg.includes('invalid product')) {
-                  lastErr = new Error(data.message || 'Invalid product selected');
-                  break; // next slug candidate
-                }
-                throw new Error(data.message || `get-phone ${res.status}`);
-              }
+        if (haveFirebase || haveLocal) {
+          injectRedemptionUI(document.getElementById(`details-container-${index}`), index);
+          const phoneBox = document.getElementById(`phone-box-${index}`);
+          const otpBox = document.getElementById(`otp-box-${index}`);
 
-              // Avoid duplicates across cards
-              const dupNumber = data.phoneNumber && usedNumbers.has(data.phoneNumber);
-              const dupProv   = data.providerOrderId && usedProviderOrders.has(data.providerOrderId);
-              if ((dupNumber || dupProv) && attempt === 0) {
-                continue; // retry once for this slug
-              }
+          const phoneNumber = haveFirebase ? fbCard.phoneNumber : local.phoneNumber;
+          const otpVal      = haveFirebase ? fbCard.otp : local.otp;
+          const provider    = haveFirebase ? fbCard.provider : local.provider;
+          const providerOrderId = haveFirebase ? fbCard.providerOrderId : local.providerOrderId;
+          const expiry      = haveFirebase ? fbCard.countdownExpiry : local.countdownExpiry;
 
-              if (data.phoneNumber) usedNumbers.add(data.phoneNumber);
-              if (data.providerOrderId) usedProviderOrders.add(data.providerOrderId);
+          phoneBox.classList.remove("animate-pulse");
+          phoneBox.textContent = phoneNumber;
 
-              phoneBox.classList.remove("animate-pulse");
-              phoneBox.textContent = data.phoneNumber || '—';
-              pollForOtp(orderId, data.provider, data.providerOrderId, index);
-              return;
-            } catch (err) {
-              lastErr = err;
+          // sync localStorage with Firebase if Firebase has data
+          if (haveFirebase) {
+            updateCardState(orderId, index, {
+              instanceId,
+              phoneNumber,
+              provider,
+              providerOrderId,
+              countdownExpiry: expiry || (Date.now() + 600000),
+              otp: otpVal || null,
+              redeemed: !!otpVal
+            });
+          }
+
+          if (otpVal) {
+            otpBox.classList.remove("animate-pulse");
+            otpBox.textContent = otpVal;
+            markButtonRedeemed(index);
+          } else {
+            if (btn) {
+              btn.disabled = true;
+              btn.textContent = translations[currentLang]?.redeeming_button || "Redeeming...";
+              btn.classList.add("bg-gray-400", "cursor-not-allowed");
             }
+            const remainingMs = Math.max(0, (expiry || (Date.now()+600000)) - Date.now());
+            pollForOtp(orderId, provider, providerOrderId, index, remainingMs);
           }
         }
 
-        phoneBox.classList.remove("animate-pulse");
-        phoneBox.textContent = `Error: ${lastErr ? lastErr.message : 'Unable to get number'}`;
-        console.error('All slug candidates failed for item', candidates, lastErr);
-      }
+        // Normal click flow (only if not already in progress or redeemed)
+        btn?.addEventListener("click", async () => {
+          const cur = (ensureState(orderId).cards || {})[index] || {};
+          if ((cur.phoneNumber && (cur.otp || cur.providerOrderId)) || (fbCards[String(index)]?.otp)) return;
 
-      function markButtonRedeemed(index) {
-        const btn = document.getElementById(`redeem-btn-${index}`);
-        if (!btn) return;
-        btn.textContent = 'Redeemed !';
-        btn.classList.remove('bg-gray-400', 'hover:bg-blue-700');
-        btn.classList.add('bg-green-600');
-      }
+          btn.disabled = true;
+          btn.textContent = translations[currentLang]?.redeeming_button || "Redeeming...";
+          btn.classList.add("bg-gray-400", "cursor-not-allowed");
 
-      function pollForOtp(orderId, provider, providerOrderId, index) {
-        const otpBox = document.getElementById(`otp-box-${index}`);
-        const timerEl = document.getElementById(`timer-${index}`);
-        if (!otpBox || !timerEl) return;
+          const detailsContainer = document.getElementById(`details-container-${index}`);
+          injectRedemptionUI(detailsContainer, index);
 
-        let countdown = 600;
+          const candidates = item.productKey ? [item.productKey] : productSlugCandidates(item.name);
+          await requestPhoneNumberWithFallback(orderId, candidates, index);
+        });
+      });
+    }
 
-        const timerInterval = setInterval(() => {
-          timerEl.textContent =
-            `${translations[currentLang]?.status_waiting_otp || 'Waiting for OTP...'} ${Math.floor(countdown/60)}:${('0'+countdown%60).slice(-2)}`;
-          if (--countdown < 0) clearInterval(timerInterval);
-        }, 1000);
+    function injectRedemptionUI(container, index) {
+      if (!container) return;
+      container.innerHTML = `
+        <div class="mb-4 text-left">
+          <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
+          <div class="flex items-center gap-2 mt-1">
+            <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
+          </div>
+        </div>
+        <div class="mb-2 text-left">
+          <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
+          <div class="flex items-center gap-2 mt-1">
+            <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
+          </div>
+        </div>
+        <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
+      `;
+    }
 
-        const otpInterval = setInterval(async () => {
-          if (countdown < 0) {
-            clearInterval(otpInterval);
-            timerEl.textContent = translations[currentLang]?.status_timeout || 'Timed out.';
-            return;
-          }
+    async function requestPhoneNumberWithFallback(orderId, candidates, index) {
+      const phoneBox = document.getElementById(`phone-box-${index}`);
+      if (!phoneBox) return;
+
+      const stateBefore = ensureState(orderId);
+      const { instanceId } = stateBefore.cards[index] || { instanceId: makeInstanceId() };
+      let lastErr = null;
+
+      // Try each slug; for each, retry once if number duplicates
+      for (const productKey of candidates) {
+        for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            const res = await fetch(`${backendUrl}/check-otp`, {
+            const res = await fetch(`${backendUrl}/get-phone`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ provider, providerOrderId })
+              body: JSON.stringify({
+                shopeeId: orderId,
+                product: productKey,
+                isRetry: attempt > 0,
+                forceNew: true,
+                instanceId
+              })
             });
             const data = await res.json().catch(() => ({}));
-            if (res.ok && data.otp) {
-              otpBox.classList.remove("animate-pulse");
-              otpBox.textContent = data.otp;
-              clearInterval(otpInterval);
-              clearInterval(timerInterval);
-              timerEl.textContent = `✅ ${translations[currentLang]?.status_received || 'OTP Received!'}`;
-              markButtonRedeemed(index);
+
+            if (!res.ok) {
+              const msg = (data && data.message) ? String(data.message).toLowerCase() : "";
+              if (msg.includes("invalid product")) {
+                lastErr = new Error(data.message || "Invalid product selected");
+                break; // next slug candidate
+              }
+              throw new Error(data.message || `get-phone ${res.status}`);
             }
-          } catch (_) { /* ignore transient polling errors */ }
-        }, 5000);
+
+            // Avoid duplicates across cards
+            const dupNumber = data.phoneNumber && usedNumbers.has(data.phoneNumber);
+            const dupProv   = data.providerOrderId && usedProviderOrders.has(data.providerOrderId);
+            if ((dupNumber || dupProv) && attempt === 0) {
+              continue; // retry once for this slug
+            }
+
+            if (data.phoneNumber) usedNumbers.add(data.phoneNumber);
+            if (data.providerOrderId) usedProviderOrders.add(data.providerOrderId);
+
+            // Persist locally with countdown expiry (10 min)
+            const expiry = Date.now() + 600 * 1000;
+            updateCardState(orderId, index, {
+              instanceId,
+              phoneNumber: data.phoneNumber || "",
+              provider: data.provider || "",
+              providerOrderId: data.providerOrderId || "",
+              countdownExpiry: expiry,
+              otp: null,
+              redeemed: false
+            });
+
+            // Persist used sets
+            const s = ensureState(orderId);
+            s.usedNumbers = Array.from(usedNumbers);
+            s.usedProviderOrders = Array.from(usedProviderOrders);
+            saveState(orderId, s);
+
+            phoneBox.classList.remove("animate-pulse");
+            phoneBox.textContent = data.phoneNumber || "—";
+
+            const remainingMs = Math.max(0, expiry - Date.now());
+            pollForOtp(orderId, data.provider, data.providerOrderId, index, remainingMs);
+            return;
+          } catch (err) {
+            lastErr = err;
+          }
+        }
       }
 
-      window.addEventListener('load', () => {
-        try {
-          const sw = document.getElementById('lang-switcher');
-          if (sw) {
-            sw.textContent = translations[currentLang]?.lang_button || 'Bahasa Melayu';
-            sw.addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
-          }
-          fetchOrderDetails();
-        } catch (e) {
-          showFatal('Startup failed', e);
-        }
-      });
-    } catch (outer) {
-      showFatal('Top-level script error', outer);
+      phoneBox.classList.remove("animate-pulse");
+      phoneBox.textContent = `Error: ${lastErr ? lastErr.message : "Unable to get number"}`;
+      console.error("All slug candidates failed for item", candidates, lastErr);
     }
-  })();
+
+    function markButtonRedeemed(index) {
+      const btn = document.getElementById(`redeem-btn-${index}`);
+      if (!btn) return;
+      btn.textContent = "Redeemed !";
+      btn.classList.remove("bg-gray-400", "hover:bg-blue-700");
+      btn.classList.add("bg-green-600");
+    }
+
+    // Resume-aware OTP poller. If remainingMs provided, continue from there.
+    function pollForOtp(orderId, provider, providerOrderId, index, remainingMs) {
+      const otpBox = document.getElementById(`otp-box-${index}`);
+      const timerEl = document.getElementById(`timer-${index}`);
+      if (!otpBox || !timerEl) return;
+
+      // Compute countdown in seconds from remainingMs (default 10 min)
+      let remaining = Math.ceil((typeof remainingMs === "number" ? remainingMs : 600000) / 1000);
+
+      const timerInterval = setInterval(() => {
+        timerEl.textContent =
+          `${translations[currentLang]?.status_waiting_otp || "Waiting for OTP..."} ${Math.floor(remaining/60)}:${("0"+remaining%60).slice(-2)}`;
+        if (--remaining < 0) clearInterval(timerInterval);
+      }, 1000);
+
+      const otpInterval = setInterval(async () => {
+        if (remaining < 0) {
+          clearInterval(otpInterval);
+          timerEl.textContent = translations[currentLang]?.status_timeout || "Timed out.";
+          return;
+        }
+        try {
+          const res = await fetch(`${backendUrl}/check-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ provider, providerOrderId })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.otp) {
+            otpBox.classList.remove("animate-pulse");
+            otpBox.textContent = data.otp;
+
+            // Persist OTP + redeemed locally
+            updateCardState(orderId, index, { otp: data.otp, redeemed: true });
+
+            // Persist to Firebase ONLY when phone + OTP exist (cross-device reuse)
+            const ls = ensureState(orderId).cards[index];
+            try {
+              await fbSetCard(orderId, index, {
+                instanceId: ls?.instanceId || "",
+                itemName: ls?.itemName || "",
+                productKey: ls?.productKey || "",
+                phoneNumber: ls?.phoneNumber || "",
+                provider: provider || "",
+                providerOrderId: providerOrderId || "",
+                otp: data.otp,
+                redeemed: true,
+                countdownExpiry: ls?.countdownExpiry || (Date.now() + 600000)
+              });
+            } catch (e) {
+              console.warn("Failed to write OTP to Firebase (will remain in localStorage)", e);
+            }
+
+            clearInterval(otpInterval);
+            clearInterval(timerInterval);
+            timerEl.textContent = `✅ ${translations[currentLang]?.status_received || "OTP Received!"}`;
+            markButtonRedeemed(index);
+          }
+        } catch (_) { /* ignore transient polling errors */ }
+      }, 5000);
+    }
+
+    window.addEventListener("load", () => {
+      try {
+        const sw = document.getElementById("lang-switcher");
+        if (sw) {
+          sw.textContent = translations[currentLang]?.lang_button || "Bahasa Melayu";
+          sw.addEventListener("click", () => setLanguage(currentLang === "en" ? "ms" : "en"));
+        }
+        fetchOrderDetails();
+      } catch (e) {
+        showFatal("Startup failed", e);
+      }
+    });
+  } catch (outer) {
+    showFatal("Top-level script error", outer);
+  }
   </script>
 </body>
 </html>
