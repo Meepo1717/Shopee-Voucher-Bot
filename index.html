@@ -22,7 +22,7 @@
     </button>
 
     <div id="note" class="text-xs text-gray-500 mt-3">
-      We’ll only proceed if the order is **paid**. Unpaid orders are blocked for your protection.
+      We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.
     </div>
 
     <div id="status" class="mt-4 hidden"></div>
@@ -31,96 +31,55 @@
   <script>
   (function(){
     var backendUrl = "https://havicbot-backend.onrender.com";
+    var input = document.getElementById('order-sn');
+    var btn   = document.getElementById('verify-btn');
+    var statusEl = document.getElementById('status');
 
     function showStatus(msg, type){
-      var el = document.getElementById('status');
-      el.className = "mt-4 px-3 py-3 rounded-lg " + (type==='ok'
+      statusEl.className = "mt-4 px-3 py-3 rounded-lg " + (type==='ok'
         ? "bg-green-50 text-green-700 border border-green-200"
         : type==='warn'
           ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
           : "bg-red-50 text-red-700 border border-red-200");
-      el.innerHTML = msg;
-      el.classList.remove('hidden');
+      statusEl.innerHTML = msg;
+      statusEl.classList.remove('hidden');
     }
+    function setDisabled(el, on){ el.disabled=on; el.classList.toggle('opacity-60',on); el.classList.toggle('cursor-not-allowed',on); }
 
-    function disable(btn, on){
-      btn.disabled = on;
-      if(on){ btn.classList.add('opacity-60','cursor-not-allowed'); }
-      else  { btn.classList.remove('opacity-60','cursor-not-allowed'); }
-    }
-
-    function isPaidFromPayload(data){
-      try{
-        // 1) explicit boolean your backend could return
-        if (data.is_paid === true) return true;
-
-        // 2) common order status values that imply buyer has paid / order in fulfillment
-        var st = (data.order_status || data.status || '').toUpperCase();
-        if (['READY_TO_SHIP','TO_SHIP','SHIPPED','COMPLETED','PROCESSED'].indexOf(st) > -1) return true;
-
-        // 3) escrow held > 0 (from your Shopee log -> response.order_income.escrow_amount)
-        if (data.order_income && Number(data.order_income.escrow_amount) > 0) return true;
-
-        // 4) otherwise treat as unpaid
-        return false;
-      }catch(e){ return false; }
-    }
-
-    async function verifyOrder(orderSn){
-      // Call your existing endpoint. It should work for both paid/unpaid.
-      const res = await fetch(backendUrl + "/get-order-details", {
+    async function verifyAndGo(sn){
+      // Server does the escrow verification here
+      const res = await fetch(backendUrl + "/verify-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopeeId: orderSn })
+        body: JSON.stringify({ shopeeId: sn })
       });
+      const json = await res.json().catch(() => ({}));
 
-      let payload = {};
-      try { payload = await res.json(); } catch(_) {}
-
-      // If backend signals an error (e.g., invalid SN), surface it
-      if (!res.ok || payload.success === false) {
-        const msg = (payload && payload.message) ? payload.message : ("HTTP " + res.status);
-        throw new Error(msg);
+      if (!res.ok || json.success !== true) {
+        showStatus(json.message || "Order is not paid / invalid.", "err");
+        return;
       }
-
-      // Some backends wrap the Shopee response; keep both surfaces usable
-      // - payload.items/payload.order_sn (your previous format)
-      // - payload.response.* (raw Shopee, like the log you pasted)
-      const sho = payload.response || {};
-      if (!payload.order_income && sho.order_income) payload.order_income = sho.order_income;
-      if (!payload.order_status && sho.order_status) payload.order_status = sho.order_status;
-
-      return payload;
+      // Prefer server-sent order_sn if present
+      var finalSn = json.order_sn || sn;
+      showStatus("✅ Order verified. Redirecting…", "ok");
+      // Redirect to otp.html in the same folder
+      var url = new URL('otp.html', window.location.href);
+      url.searchParams.set('order_sn', finalSn);
+      window.location.href = url.toString();
     }
 
-    document.getElementById('verify-btn').addEventListener('click', async function(){
-      var btn = this;
-      var orderSn = (document.getElementById('order-sn').value || '').trim();
-      if(!orderSn){ showStatus("Please enter an Order SN.", "err"); return; }
-
-      disable(btn, true);
+    function onClick(){
+      var sn = (input.value || "").trim();
+      if(!sn){ showStatus("Please enter a valid Order SN.", "err"); return; }
+      setDisabled(btn, true);
       showStatus("Verifying order…", "warn");
+      verifyAndGo(sn).catch(function(){
+        showStatus("Could not verify the order (network/server error).", "err");
+      }).finally(function(){ setDisabled(btn, false); });
+    }
 
-      try{
-        const data = await verifyOrder(orderSn);
-
-        if (!isPaidFromPayload(data)) {
-          showStatus("❌ This order appears to be <b>UNPAID</b>. Please complete payment in Shopee first, then return to continue.", "err");
-          disable(btn, false);
-          return;
-        }
-
-        showStatus("✅ Order verified. Redirecting to redemption…", "ok");
-
-        // Use order_sn from backend if present; fall back to the user input
-        var sn = data.order_sn || orderSn;
-        // Send the SN in the query for otp.html to use:
-        window.location.href = "otp.html?order_sn=" + encodeURIComponent(sn);
-      }catch(e){
-        showStatus("Could not verify the order (" + (e && e.message ? e.message : "unknown error") + ").", "err");
-        disable(btn, false);
-      }
-    });
+    btn.addEventListener('click', onClick);
+    input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ onClick(); } });
   })();
   </script>
 </body>
