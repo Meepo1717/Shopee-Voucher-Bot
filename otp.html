@@ -58,8 +58,6 @@
       error_get_number: "Unable to get number",
       retry: "Retry",
       getting_number_retrying: (n, total) => `Waiting for available numbers… (retry ${n}/${total})`,
-      copy: "Copy",
-      copied: "Copied!"
     },
     ms: {
       title: "Penebusan Baucar",
@@ -79,8 +77,6 @@
       error_get_number: "Tidak dapat memperoleh nombor",
       retry: "Cuba Lagi",
       getting_number_retrying: (n, total) => `Menunggu nombor tersedia… (cubaan ${n}/${total})`,
-      copy: "Salin",
-      copied: "Disalin!"
     }
   };
   let currentLang = 'en';
@@ -94,10 +90,6 @@
     });
     const sw = document.getElementById('lang-switcher');
     if (sw) sw.textContent = translations[lang].lang_button;
-    // also update any "Copy" buttons
-    document.querySelectorAll('[data-i18n-copy]').forEach(btn=>{
-      btn.textContent = translations[lang].copy;
-    });
   }
   function t(k,...args){
     const v = translations[currentLang][k];
@@ -109,6 +101,7 @@
     const qs = new URLSearchParams(window.location.search);
     return qs.get('order_sn') || qs.get('orderId') || qs.get('ordersn') || '';
   }
+  // state is kept per orderSn, per index
   function loadOrderState(orderSn){
     try { return JSON.parse(localStorage.getItem('hb_voucher_state_' + orderSn)) || {}; }
     catch { return {}; }
@@ -121,13 +114,13 @@
     return state[index];
   }
 
-  // Robust mapping
+  // Robust mapping: tolerate "KK.FF.CC", "K K F C", etc.
   function mapProductKeyFromName(name = "") {
     const raw = (name || "").toLowerCase();
-    const letters = raw.replace(/[^a-z]/g, "");
+    const letters = raw.replace(/[^a-z]/g, ""); // remove dots/spaces → "kkffcc"
     const has = (re) => re.test(letters);
 
-    if (has(/k+.*f+.*c+/)) return "kfc";
+    if (has(/k+.*f+.*c+/)) return "kfc";                 // kfc, kkffcc, k.f.c, etc.
     if (letters.includes("zus")) return "zus";
     if (letters.includes("tealive")) return "tealive";
     if (letters.includes("chagee")) return "chagee";
@@ -137,50 +130,7 @@
     if (letters.includes("gigi")) return "gigi";
     if (letters.includes("coffeebean")) return "coffeebean";
     if (letters.includes("shein")) return "shein";
-    return "kfc";
-  }
-
-  // ---------- Copy helpers ----------
-  async function copyText(text, btn){
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      const old = btn.textContent;
-      btn.textContent = t('copied');
-      btn.disabled = true;
-      setTimeout(() => {
-        btn.textContent = t('copy');
-        btn.disabled = false;
-      }, 1200);
-    } catch {
-      // fallback
-      prompt("Copy this value:", text);
-    }
-  }
-  function setCopyEnabled(index, enabled){
-    const phoneBtn = document.getElementById(`copy-phone-${index}`);
-    const otpBtn   = document.getElementById(`copy-otp-${index}`);
-    [phoneBtn, otpBtn].forEach(btn=>{
-      if (!btn) return;
-      btn.disabled = !enabled;
-      btn.classList.toggle('opacity-50', !enabled);
-      btn.classList.toggle('cursor-not-allowed', !enabled);
-    });
-  }
-  function attachCopyHandlers(index){
-    const phoneBtn = document.getElementById(`copy-phone-${index}`);
-    const otpBtn   = document.getElementById(`copy-otp-${index}`);
-    const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
-
-    if (phoneBtn) {
-      phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
-    }
-    if (otpBtn) {
-      otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
-    }
-    // start disabled; we only enable after OTP arrives
-    setCopyEnabled(index, false);
+    return "kfc"; // safe fallback in your setup
   }
 
   // ---------- Fetch order + render ----------
@@ -201,26 +151,16 @@
         <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">${t('phone_label')}</label>
         <div class="flex items-center gap-2 mt-1">
           <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
-          <button id="copy-phone-${index}" data-i18n-copy
-                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-            ${t('copy')}
-          </button>
         </div>
       </div>
       <div class="mb-2 text-left">
         <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">${t('otp_label')}</label>
         <div class="flex items-center gap-2 mt-1">
           <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
-          <button id="copy-otp-${index}" data-i18n-copy
-                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-            ${t('copy')}
-          </button>
         </div>
       </div>
       <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
     `;
-    // attach copy handlers (start disabled)
-    attachCopyHandlers(index);
   }
 
   function setBtnState(btn, mode){ // 'idle' | 'redeeming' | 'redeemed'
@@ -258,6 +198,7 @@
   }
 
   async function requestPhoneNumber(orderSn, productKey, index, state, btn){
+    // up to 3 tries: primary, retryService (server), then one more try with isRetry again
     const phoneBox = document.getElementById(`phone-box-${index}`);
     const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
@@ -292,11 +233,13 @@
         pollForOtp(orderSn, state, index, btn, iv);
         return;
       } catch (e) {
+        // transient error: show retry message on attempt 1/2
         if (attempt < maxAttempts) {
           phoneBox.textContent = t('getting_number_retrying', attempt, maxAttempts);
           await new Promise(r=>setTimeout(r, 2500));
           continue;
         }
+        // final failure
         phoneBox.textContent = `Error: ${t('error_get_number')}`;
         setBtnState(btn, 'idle');
         state.status = 'idle';
@@ -309,8 +252,10 @@
   function pollForOtp(orderSn, state, index, btn, timerIv){
     const otpBox  = document.getElementById(`otp-box-${index}`);
     const timerEl = document.getElementById(`timer-${index}`);
+    let stop = false;
 
     const poll = async () => {
+      if (stop) return;
       const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
       if (remain <= 0) {
         clearInterval(pollIv);
@@ -319,8 +264,6 @@
         setBtnState(btn, 'idle');
         state.status = 'idle';
         saveOrderState(orderSn, orderState);
-        // keep copy buttons disabled since OTP never arrived
-        setCopyEnabled(index, false);
         return;
       }
       try {
@@ -341,10 +284,7 @@
           timerEl.textContent = `✅ ${t('status_received')}`;
           setBtnState(btn, 'redeemed');
 
-          // enable copy buttons now that OTP is here
-          setCopyEnabled(index, true);
-
-          // notify backend (best effort)
+          // notify backend that redemption is complete (best effort)
           fetch(`${backendUrl}/confirm-redemption`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -354,7 +294,7 @@
       } catch (_) {}
     };
     const pollIv = setInterval(poll, 5000);
-    poll();
+    poll(); // first tick
   }
 
   function restoreVoucherUI(orderSn, index, state, btn){
@@ -362,26 +302,22 @@
     const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
 
+    // existing phone?
     if (state.phoneNumber) phoneBox.textContent = state.phoneNumber;
 
     if (state.status === 'redeemed' && state.otp) {
       otpBox.textContent = state.otp;
       setBtnState(btn, 'redeemed');
       timerEl.textContent = `✅ ${t('status_received')}`;
-      // OTP exists -> enable copy buttons
-      setCopyEnabled(index, true);
       return;
     }
 
     if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
       setBtnState(btn, 'redeeming');
       const iv = startTimer(index, state.countdownEnd, timerEl);
-      // keep copy disabled until OTP arrives
-      setCopyEnabled(index, false);
       pollForOtp(orderSn, state, index, btn, iv);
     } else {
       setBtnState(btn, 'idle');
-      setCopyEnabled(index, false);
     }
   }
 
