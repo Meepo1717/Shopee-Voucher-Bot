@@ -33,15 +33,12 @@
     </div>
 
     <!-- Container for Product Cards -->
-    <div id="products-container" class="space-y-4">
-      <!-- Product cards will be dynamically inserted here -->
-    </div>
+    <div id="products-container" class="space-y-4"></div>
   </div>
 
   <!-- ================== APPLICATION SCRIPT ================== -->
   <script>
   (() => {
-    // show a readable error on-page instead of blank white
     function showFatal(msg, err) {
       console.error('[HavicBot OTP] ', msg, err || '');
       const c = document.querySelector('.w-full.max-w-xl.bg-white');
@@ -112,26 +109,48 @@
       // --- Core Application Logic ---
       const backendUrl = "https://havicbot-backend.onrender.com";
 
-      // accept ?orderId=... OR ?order_sn=... (and a few fallbacks)
       function getOrderIdFromUrl() {
         const qs = new URLSearchParams(window.location.search);
         return qs.get('orderId') || qs.get('order_sn') || qs.get('ordersn') || qs.get('orderSN');
       }
 
-      // map name -> product key (fallback to 'shopee')
-      function mapProductKeyFromName(name = "") {
+      // Return an ordered list of backend slug candidates for a product title
+      function productSlugCandidates(name = "") {
         const n = name.toLowerCase();
-        if (n.includes('kfc')) return 'kfc';
-        if (n.includes('zus')) return 'zus';
-        if (n.includes('chagee')) return 'chagee';
-        if (n.includes('tealive')) return 'tealive';
-        if (n.includes('gigi')) return 'gigi';
-        if (n.includes('marrybrown')) return 'marrybrown';
-        if (n.includes('shein')) return 'shein';
-        if (n.includes('coffee bean')) return 'coffeebean';
-        if (n.includes('kenangan')) return 'kenangan';
-        if (n.includes('luckin')) return 'luckin';
-        return 'shopee';
+
+        // ZUS Coffee
+        if (n.includes('zus')) return ['zus_coffee', 'zus'];
+
+        // KFC
+        if (/\bkfc\b/i.test(name)) return ['kfc'];
+
+        // Marrybrown (include common typo)
+        if (n.includes('marrybrown') || n.includes('marybrown')) return ['marrybrown', 'marybrown', 'mb'];
+
+        // CHAGEE
+        if (n.includes('chagee')) return ['chagee'];
+
+        // Tealive
+        if (n.includes('tealive')) return ['tealive'];
+
+        // Gigi Coffee
+        if (n.includes('gigi')) return ['gigi_coffee', 'gigi'];
+
+        // The Coffee Bean & Tea Leaf
+        if (n.includes('coffee bean') || n.includes('cb&tl') || n.includes('coffee bean & tea leaf'))
+          return ['coffee_bean', 'coffeebean', 'coffee_bean_tea_leaf'];
+
+        // Kenangan Coffee
+        if (n.includes('kenangan')) return ['kenangan_coffee', 'kenangan'];
+
+        // Luckin Coffee
+        if (n.includes('luckin')) return ['luckin_coffee', 'luckin'];
+
+        // SHEIN
+        if (n.includes('shein')) return ['shein'];
+
+        // Fallback
+        return ['shopee'];
       }
 
       // Normalize items from backend or Shopee escrow shape
@@ -140,7 +159,8 @@
           const name = it.name ?? it.item_name ?? it.title ?? '';
           const itemId = it.itemId ?? it.item_id ?? it.id ?? '';
           const quantity = Number(it.quantity ?? it.quantity_purchased ?? 1) || 1;
-          const productKey = it.productKey ?? mapProductKeyFromName(name);
+          // If backend already sent a productKey, respect it; otherwise map from title
+          const productKey = it.productKey ?? productSlugCandidates(name)[0];
           return { name, itemId, quantity, productKey };
         });
       }
@@ -228,7 +248,9 @@
             const detailsContainer = document.getElementById(`details-container-${index}`);
             injectRedemptionUI(detailsContainer, index);
 
-            await requestPhoneNumber(orderId, item.productKey || mapProductKeyFromName(item.name), index);
+            // Try multiple slug candidates until one succeeds
+            const candidates = item.productKey ? [item.productKey] : productSlugCandidates(item.name);
+            await requestPhoneNumberWithFallback(orderId, candidates, index);
           });
         });
       }
@@ -252,26 +274,46 @@
         `;
       }
 
-      async function requestPhoneNumber(orderId, productKey, index) {
+      async function requestPhoneNumberWithFallback(orderId, candidates, index) {
         const phoneBox = document.getElementById(`phone-box-${index}`);
         if (!phoneBox) return;
-        try {
-          const res = await fetch(`${backendUrl}/get-phone`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderId, product: productKey, isRetry: false })
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.message || `get-phone ${res.status}`);
 
-          phoneBox.classList.remove("animate-pulse");
-          phoneBox.textContent = data.phoneNumber || '—';
-          pollForOtp(orderId, data.provider, data.providerOrderId, index);
-        } catch (err) {
-          phoneBox.classList.remove("animate-pulse");
-          phoneBox.textContent = `Error: ${err.message}`;
-          console.error('get-phone failed', err);
+        let lastErr = null;
+        for (const productKey of candidates) {
+          try {
+            console.log('Trying product slug:', productKey);
+            const res = await fetch(`${backendUrl}/get-phone`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ shopeeId: orderId, product: productKey, isRetry: false })
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+              const msg = (data && data.message) ? String(data.message).toLowerCase() : '';
+              // If backend says invalid product, try next candidate
+              if (msg.includes('invalid product')) {
+                lastErr = new Error(data.message || 'Invalid product selected');
+                continue;
+              }
+              // Other errors -> stop
+              throw new Error(data.message || `get-phone ${res.status}`);
+            }
+
+            // Success -> render & start OTP polling
+            phoneBox.classList.remove("animate-pulse");
+            phoneBox.textContent = data.phoneNumber || '—';
+            pollForOtp(orderId, data.provider, data.providerOrderId, index);
+            return;
+          } catch (err) {
+            lastErr = err;
+          }
         }
+
+        // All candidates failed
+        phoneBox.classList.remove("animate-pulse");
+        phoneBox.textContent = `Error: ${lastErr ? lastErr.message : 'Unable to get number'}`;
+        console.error('All slug candidates failed for item', candidates, lastErr);
       }
 
       function pollForOtp(orderId, provider, providerOrderId, index) {
