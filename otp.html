@@ -1,493 +1,403 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Voucher Redemption Summary - HavicBot</title>
+  <title>Voucher Redemption - HavicBot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>body{font-family:'Inter',sans-serif}</style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
+  <!-- Language Switcher -->
   <div class="absolute top-4 right-4">
-    <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+    <button id="lang-switcher"
+            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
       Bahasa Melayu
     </button>
   </div>
 
   <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
     <div class="text-center">
-      <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color:#EE4D2D;">Voucher Redemption</h1>
+      <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
       <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
     </div>
 
+    <!-- Order SN -->
     <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
       <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
       <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
     </div>
 
+    <!-- Products -->
     <div id="products-container" class="space-y-4"></div>
   </div>
 
-  <script>
-  (function(){
-    // ---------- Utils ----------
-    function showFatal(msg, err){
-      try{console.error('[HavicBot OTP]', msg, err||'');}catch(e){}
-      var c=document.querySelector('.w-full.max-w-xl.bg-white');
-      var html='<div class="text-center">'
-              +'<h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;">Voucher Redemption</h1>'
-              +'<p class="text-red-600 font-semibold">An error occurred:</p>'
-              +'<pre class="text-left bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg overflow-auto mt-2 whitespace-pre-wrap">'+String(msg)+'</pre>'
-              +'</div>';
-      if(c){c.innerHTML=html;}else{document.body.innerHTML='<pre>'+String(msg)+'</pre>';}
+<script>
+(() => {
+  const backendUrl = "https://havicbot-backend.onrender.com";
+
+  // ---------- i18n ----------
+  const translations = {
+    en: {
+      title: "Voucher Redemption",
+      status_fetching: "Fetching your order details...",
+      status_ready: "Your products are ready. Please redeem them below.",
+      status_failed_fetch: "Failed to fetch order details.",
+      order_sn_label: "Order SN",
+      redeem_button: "Redeem",
+      redeeming_button: "Redeeming...",
+      redeemed_button: "Redeemed!",
+      phone_label: "Generated Phone Number",
+      otp_label: "Verification Code (OTP)",
+      status_waiting_otp: "Waiting for OTP...",
+      status_received: "OTP Received!",
+      status_timeout: "OTP not received in time.",
+      lang_button: "Bahasa Melayu",
+      error_get_number: "Unable to get number",
+      retry: "Retry",
+      getting_number_retrying: (n, total) => `Waiting for available numbers… (retry ${n}/${total})`,
+    },
+    ms: {
+      title: "Penebusan Baucar",
+      status_fetching: "Memuatkan butiran pesanan anda...",
+      status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
+      status_failed_fetch: "Gagal memuatkan butiran pesanan.",
+      order_sn_label: "SN Pesanan",
+      redeem_button: "Tebus",
+      redeeming_button: "Menebus...",
+      redeemed_button: "Telah Ditebus!",
+      phone_label: "Nombor Telefon Dijana",
+      otp_label: "Kod Pengesahan (OTP)",
+      status_waiting_otp: "Menunggu OTP...",
+      status_received: "OTP Diterima!",
+      status_timeout: "OTP tidak diterima dalam masa.",
+      lang_button: "English",
+      error_get_number: "Tidak dapat memperoleh nombor",
+      retry: "Cuba Lagi",
+      getting_number_retrying: (n, total) => `Menunggu nombor tersedia… (cubaan ${n}/${total})`,
     }
-    function getQS(name){
-      var s=window.location.search.replace(/^\?/,'').split('&');var i;
-      for(i=0;i<s.length;i++){var p=s[i].split('=');if(decodeURIComponent(p[0])===name){return decodeURIComponent(p[1]||'');}}
-      return null;
-    }
-    function fetchWithTimeout(url,opts,ms){
-      return new Promise(function(resolve,reject){
-        var done=false;
-        var timer=setTimeout(function(){ if(done)return; done=true; reject(new Error('Request timed out')); }, ms||20000);
-        try{
-          fetch(url,opts).then(function(r){ if(done)return; done=true; clearTimeout(timer); resolve(r); })
-                         .catch(function(e){ if(done)return; done=true; clearTimeout(timer); reject(e); });
-        }catch(e){ if(done)return; done=true; clearTimeout(timer); reject(e); }
-      });
-    }
-    function makeInstanceId(){
-      try{
-        var buf=new Uint32Array(3); (window.crypto||window.msCrypto).getRandomValues(buf);
-        return 'inst_'+Date.now().toString(36)+'_'+buf[0].toString(36)+buf[1].toString(36)+buf[2].toString(36);
-      }catch(e){
-        return 'inst_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2);
-      }
-    }
-
-    // ---------- I18N ----------
-    var translations={
-      en:{title:"Voucher Redemption",status_fetching:"Fetching your order details...",status_ready:"Your products are ready. Please redeem them below.",status_failed_fetch:"Failed to fetch order details.",order_sn_label:"Order SN",redeem_button:"Redeem",redeeming_button:"Redeeming...",phone_label:"Generated Phone Number",otp_label:"Verification Code (OTP)",status_waiting_otp:"Waiting for OTP...",status_received:"OTP Received!",status_timeout:"OTP not received in time.",lang_button:"Bahasa Melayu"},
-      ms:{title:"Penebusan Baucar",status_fetching:"Memuatkan butiran pesanan anda...",status_ready:"Produk anda sudah sedia. Sila tebus di bawah.",status_failed_fetch:"Gagal memuatkan butiran pesanan.",order_sn_label:"SN Pesanan",redeem_button:"Tebus",redeeming_button:"Menebus...",phone_label:"Nombor Telefon Dijana",otp_label:"Kod Pengesahan (OTP)",status_waiting_otp:"Menunggu OTP...",status_received:"OTP Diterima!",status_timeout:"OTP tidak diterima dalam masa.",lang_button:"English"}
-    };
-    var currentLang='en';
-    function setLanguage(lang){
-      currentLang=lang;
-      var els=document.querySelectorAll('[data-translate]'); var i;
-      for(i=0;i<els.length;i++){
-        var el=els[i]; var key=el.getAttribute('data-translate');
-        var t=translations[lang]&&translations[lang][key];
-        if(t){ el.textContent=t; }
-      }
-      var sw=document.getElementById('lang-switcher');
-      if(sw){ sw.textContent=(translations[lang]&&translations[lang].lang_button)||'Language'; }
-    }
-
-    // ---------- Config ----------
-    var backendUrl="https://havicbot-backend.onrender.com";
-
-    // Fill these to enable Firestore persistence (optional)
-    var firebaseConfig={
-      apiKey:"AIzaSyDGerlhYgArwBi-wFM2mJ9dfhyTlyVToII",          // <-- set real values to enable cloud save
-      authDomain:"havicbot-db.firebaseapp.com",
-      projectId:"havicbot-db"
-    };
-
-    // ---------- Firebase (compat, loaded only if configured) ----------
-    var fbReady=false, fbInitAttempted=false;
-    function shouldUseFirebase(cfg){ return cfg && cfg.apiKey && cfg.projectId; }
-    function loadFirebase(callback){
-      if(!shouldUseFirebase(firebaseConfig)){ callback(null); return; }
-      if(fbReady){ callback(window.firebase||null); return; }
-      if(fbInitAttempted){
-        var t=setInterval(function(){ if(fbReady){ clearInterval(t); callback(window.firebase||null); } },100);
-        setTimeout(function(){ clearInterval(t); if(!fbReady) callback(null); },4000);
-        return;
-      }
-      fbInitAttempted=true;
-      function onAllLoaded(){
-        try{
-          if(!window.firebase) return callback(null);
-          window.firebase.initializeApp(firebaseConfig);
-          window.firebase.firestore();
-          fbReady=true;
-          callback(window.firebase);
-        }catch(e){ console.warn('Firebase init failed',e); callback(null); }
-      }
-      var s1=document.createElement('script'); s1.src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js";
-      var s2=document.createElement('script'); s2.src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js";
-      var loaded=0; function mark(){ loaded++; if(loaded===2) onAllLoaded(); }
-      s1.onload=mark; s2.onload=mark; s1.onerror=mark; s2.onerror=mark;
-      document.head.appendChild(s1); document.head.appendChild(s2);
-    }
-    function fbGetAllCards(orderId, cb){
-      loadFirebase(function(fb){
-        if(!fb){ cb(null); return; }
-        fb.firestore().collection('orders').doc(orderId).collection('cards').get()
-          .then(function(qs){ var map={}; qs.forEach(function(d){ map[d.id]=d.data(); }); cb(map); })
-          .catch(function(){ cb(null); });
-      });
-    }
-    function fbSetCard(orderId, index, data){
-      loadFirebase(function(fb){
-        if(!fb) return;
-        var db=fb.firestore();
-        db.collection('orders').doc(orderId).set({orderId:orderId,updatedAt:fb.firestore.FieldValue.serverTimestamp()},{merge:true})
-          .then(function(){ return db.collection('orders').doc(orderId).collection('cards').doc(String(index)).set(
-            (function(){ var x={}; for(var k in data){x[k]=data[k];} x.index=index; x.updatedAt=fb.firestore.FieldValue.serverTimestamp(); return x; })()
-            ,{merge:true}); })
-          .catch(function(e){ console.warn('fbSetCard error',e); });
-      });
-    }
-
-    // ---------- Product helpers ----------
-    function productSlugCandidates(name){
-      name=(name||'').toLowerCase();
-      if(name.indexOf('zus')>-1) return ['zus_coffee','zus'];
-      if(/\bkfc\b/i.test(name)) return ['kfc'];
-      if(name.indexOf('marrybrown')>-1 || name.indexOf('marybrown')>-1) return ['marrybrown','marybrown','mb'];
-      if(name.indexOf('chagee')>-1) return ['chagee'];
-      if(name.indexOf('tealive')>-1) return ['tealive'];
-      if(name.indexOf('gigi')>-1) return ['gigi_coffee','gigi'];
-      if(name.indexOf('coffee bean')>-1 || name.indexOf('cb&tl')>-1 || name.indexOf('coffee bean & tea leaf')>-1) return ['coffee_bean','coffeebean','coffee_bean_tea_leaf'];
-      if(name.indexOf('kenangan')>-1) return ['kenangan_coffee','kenangan'];
-      if(name.indexOf('luckin')>-1) return ['luckin_coffee','luckin'];
-      if(name.indexOf('shein')>-1) return ['shein'];
-      return ['shopee'];
-    }
-    function normalizeItems(items){
-      items=items||[]; var out=[], i;
-      for(i=0;i<items.length;i++){
-        var it=items[i];
-        var name=it.name||it.item_name||it.title||'';
-        var itemId=it.itemId||it.item_id||it.id||'';
-        var qty=Number(it.quantity||it.quantity_purchased||1)||1;
-        var key=it.productKey||productSlugCandidates(name)[0];
-        out.push({name:name,itemId:itemId,quantity:qty,productKey:key});
-      }
-      return out;
-    }
-
-    // ---------- Local persistence ----------
-    function storageKey(orderId){ return 'havicbot_otp_state_v1_'+orderId; }
-    function loadState(orderId){ try{ var raw=localStorage.getItem(storageKey(orderId)); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
-    function saveState(orderId,state){ try{ localStorage.setItem(storageKey(orderId), JSON.stringify(state)); }catch(e){} }
-    function ensureState(orderId){
-      var s=loadState(orderId);
-      if(!s){ s={orderId:orderId, createdAt:Date.now(), cards:{}, usedNumbers:[], usedProviderOrders:[]}; saveState(orderId,s); }
-      return s;
-    }
-    function updateCardState(orderId, index, patch){
-      var s=ensureState(orderId); var cur=s.cards[index]||{}; var k;
-      for(k in patch){ cur[k]=patch[k]; }
-      s.cards[index]=cur; saveState(orderId,s);
-    }
-
-    // ---------- App State ----------
-    var usedNumbers=new Set?new Set():{_:{},has:function(v){return this._[v];},add:function(v){this._[v]=true;}};
-    var usedProviderOrders=new Set?new Set():{_:{},has:function(v){return this._[v];},add:function(v){this._[v]=true;}};
-    var cardState={}; // index -> {instanceId}
-
-    // ---------- DOM builders ----------
-    function injectRedemptionUI(container,index){
-      if(!container) return;
-      var html=''
-        +'<div class="mb-4 text-left">'
-        +  '<label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>'
-        +  '<div class="flex items-center gap-2 mt-1">'
-        +    '<div id="phone-box-'+index+'" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>'
-        +  '</div>'
-        +'</div>'
-        +'<div class="mb-2 text-left">'
-        +  '<label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>'
-        +  '<div class="flex items-center gap-2 mt-1">'
-        +    '<div id="otp-box-'+index+'" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>'
-        +  '</div>'
-        +'</div>'
-        +'<div id="timer-'+index+'" class="text-xs text-right text-gray-500 mt-1"></div>';
-      container.innerHTML=html;
-    }
-    function markButtonRedeemed(index){
-      var btn=document.getElementById('redeem-btn-'+index);
-      if(!btn) return;
-      btn.textContent='Redeemed !';
-      btn.classList.remove('bg-gray-400','hover:bg-blue-700');
-      btn.classList.add('bg-green-600');
-    }
-
-    // ---------- Backend flows ----------
-    function pollForOtp(orderId, provider, providerOrderId, index, remainingMs){
-      var otpBox=document.getElementById('otp-box-'+index);
-      var timerEl=document.getElementById('timer-'+index);
-      if(!otpBox||!timerEl) return;
-
-      var remaining=Math.ceil((typeof remainingMs==='number'?remainingMs:600000)/1000);
-
-      var timerInterval=setInterval(function(){
-        var mins=Math.floor(remaining/60), secs=('0'+(remaining%60)).slice(-2);
-        var t=(translations[currentLang]&&translations[currentLang].status_waiting_otp)||'Waiting for OTP...';
-        timerEl.textContent=t+' '+mins+':'+secs;
-        remaining--; if(remaining<0){ clearInterval(timerInterval); }
-      },1000);
-
-      var otpInterval=setInterval(function(){
-        if(remaining<0){
-          clearInterval(otpInterval);
-          timerEl.textContent=(translations[currentLang]&&translations[currentLang].status_timeout)||'Timed out.';
-          return;
-        }
-        fetch(backendUrl+'/check-otp', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({provider:provider, providerOrderId:providerOrderId})
-        }).then(function(res){ return res.json().catch(function(){ return {}; }); })
-          .then(function(data){
-            if(data && data.otp){
-              otpBox.classList.remove('animate-pulse');
-              otpBox.textContent=data.otp;
-              updateCardState(orderId, index, { otp:data.otp, redeemed:true });
-
-              // Save to Firestore (update with OTP)
-              var ls=ensureState(orderId).cards[index]||{};
-              fbSetCard(orderId, index, {
-                instanceId: ls.instanceId||'',
-                itemName: ls.itemName||'',
-                productKey: ls.productKey||'',
-                phoneNumber: ls.phoneNumber||'',
-                provider: provider||'',
-                providerOrderId: providerOrderId||'',
-                otp: data.otp,
-                redeemed: true,
-                countdownExpiry: ls.countdownExpiry || (Date.now()+600000)
-              });
-
-              clearInterval(otpInterval); clearInterval(timerInterval);
-              var rec=(translations[currentLang]&&translations[currentLang].status_received)||'OTP Received!';
-              timerEl.textContent='✅ '+rec;
-              markButtonRedeemed(index);
-            }
-          })["catch"](function(){});
-      },5000);
-    }
-
-    function requestPhoneNumberWithFallback(orderId, candidates, index){
-      var phoneBox=document.getElementById('phone-box-'+index); if(!phoneBox) return;
-      var stateBefore=ensureState(orderId);
-      var instanceId=(stateBefore.cards[index]&&stateBefore.cards[index].instanceId)||makeInstanceId();
-      var lastErr=null;
-
-      function attemptSlug(slugList, pos, retry){
-        if(pos>=slugList.length){ finishFail(); return; }
-        var productKey=slugList[pos];
-        fetch(backendUrl+'/get-phone',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({shopeeId:orderId, product:productKey, isRetry:!!retry, forceNew:true, instanceId:instanceId})
-        }).then(function(res){ return res.json().then(function(j){ return {ok:res.ok, body:j}; })["catch"](function(){ return {ok:res.ok, body:{}}; }); })
-          .then(function(resp){
-            if(!resp.ok){
-              var msg=(resp.body&&resp.body.message)?String(resp.body.message).toLowerCase():'';
-              if(!retry && msg.indexOf('invalid product')>-1){ attemptSlug(candidates, pos+1, false); return; }
-              if(!retry){ attemptSlug(candidates, pos, true); return; }
-              lastErr=new Error(resp.body&&resp.body.message||('get-phone '+(resp.status||'')));
-              attemptSlug(candidates, pos+1, false);
-              return;
-            }
-            var data=resp.body||{};
-            var dupNumber=data.phoneNumber && (usedNumbers.has?usedNumbers.has(data.phoneNumber):usedNumbers.has[data.phoneNumber]);
-            var dupProv=data.providerOrderId && (usedProviderOrders.has?usedProviderOrders.has(data.providerOrderId):usedProviderOrders.has[data.providerOrderId]);
-            if(!retry && (dupNumber||dupProv)){ attemptSlug(candidates,pos,true); return; }
-
-            if(data.phoneNumber){ (usedNumbers.add?usedNumbers.add(data.phoneNumber):usedNumbers.add[data.phoneNumber]=true); }
-            if(data.providerOrderId){ (usedProviderOrders.add?usedProviderOrders.add(data.providerOrderId):usedProviderOrders.add[data.providerOrderId]=true); }
-
-            var expiry=Date.now()+600*1000;
-            updateCardState(orderId,index,{
-              instanceId:instanceId,
-              phoneNumber:data.phoneNumber||'',
-              provider:data.provider||'',
-              providerOrderId:data.providerOrderId||'',
-              countdownExpiry:expiry,
-              otp:null,
-              redeemed:false
-            });
-
-            // ---- NEW: save PHONE IMMEDIATELY to Firestore (pre-OTP) ----
-            var s=ensureState(orderId);
-            fbSetCard(orderId, index, {
-              instanceId: s.cards[index].instanceId || "",
-              itemName: s.cards[index].itemName || "",
-              productKey: s.cards[index].productKey || "",
-              phoneNumber: data.phoneNumber || "",
-              provider: data.provider || "",
-              providerOrderId: data.providerOrderId || "",
-              otp: null,
-              redeemed: false,
-              countdownExpiry: expiry
-            });
-            // ------------------------------------------------------------
-
-            // persist used lists locally
-            s.usedNumbers = Array.isArray(s.usedNumbers)? s.usedNumbers : [];
-            s.usedProviderOrders = Array.isArray(s.usedProviderOrders)? s.usedProviderOrders : [];
-            if(data.phoneNumber) s.usedNumbers.push(data.phoneNumber);
-            if(data.providerOrderId) s.usedProviderOrders.push(data.providerOrderId);
-            saveState(orderId,s);
-
-            phoneBox.classList.remove('animate-pulse');
-            phoneBox.textContent=data.phoneNumber||'—';
-            var remainingMs=Math.max(0, expiry-Date.now());
-            pollForOtp(orderId, data.provider, data.providerOrderId, index, remainingMs);
-          })["catch"](function(e){
-            lastErr=e||new Error('Network error');
-            if(!retry){ attemptSlug(candidates,pos,true); } else { attemptSlug(candidates,pos+1,false); }
-          });
-      }
-      function finishFail(){
-        phoneBox.classList.remove('animate-pulse');
-        phoneBox.textContent='Error: '+(lastErr?lastErr.message:'Unable to get number');
-      }
-      attemptSlug(candidates,0,false);
-    }
-
-    // ---------- Render ----------
-    function injectCard(container, index, itemName){
-      var card=document.createElement('div');
-      card.className="border border-gray-200 rounded-lg p-4 shadow-sm";
-      card.innerHTML='<div class="flex justify-between items-center">'
-                    +  '<div><h3 class="font-bold text-lg">'+(itemName||'Item')+'</h3></div>'
-                    +  '<button id="redeem-btn-'+index+'" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>'
-                    +'</div>'
-                    +'<div id="details-container-'+index+'" class="mt-4"></div>';
-      container.appendChild(card);
-    }
-
-    function renderProducts(orderId, items, fbCards){
-      var container=document.getElementById('products-container'); if(!container) return;
-      container.innerHTML='';
-      var expanded=[], i, j;
-      for(i=0;i<items.length;i++){ for(j=0;j<(items[i].quantity||1);j++) expanded.push(items[i]); }
-      if(!expanded.length){
-        var p=document.createElement('p'); p.className='text-center text-gray-600'; p.textContent='No items found for this order.'; container.appendChild(p); return;
-      }
-      var persisted=ensureState(orderId);
-
-      for(i=0;i<expanded.length;i++){
-        var item=expanded[i];
-        var existingLocal=(persisted.cards&&persisted.cards[i])||null;
-        var instanceId=(existingLocal&&existingLocal.instanceId)||makeInstanceId();
-        cardState[i]={instanceId:instanceId};
-        updateCardState(orderId,i,{instanceId:instanceId,itemName:item.name,itemId:item.itemId||'',productKey:item.productKey});
-
-        injectCard(container, i, item.name);
-
-        var btn=document.getElementById('redeem-btn-'+i);
-
-        var fbCard=fbCards&&fbCards[String(i)];
-        var haveFirebase=fbCard && fbCard.phoneNumber && (fbCard.otp || fbCard.providerOrderId);
-        var haveLocal=existingLocal && existingLocal.phoneNumber;
-
-        if(haveFirebase || haveLocal){
-          injectRedemptionUI(document.getElementById('details-container-'+i), i);
-          var phoneBox=document.getElementById('phone-box-'+i);
-          var otpBox=document.getElementById('otp-box-'+i);
-
-          var phoneNumber=haveFirebase?fbCard.phoneNumber:existingLocal.phoneNumber;
-          var otpVal=haveFirebase?fbCard.otp:existingLocal.otp;
-          var provider=haveFirebase?fbCard.provider:existingLocal.provider;
-          var providerOrderId=haveFirebase?fbCard.providerOrderId:existingLocal.providerOrderId;
-          var expiry=haveFirebase?fbCard.countdownExpiry:existingLocal.countdownExpiry;
-
-          phoneBox.classList.remove('animate-pulse');
-          phoneBox.textContent=phoneNumber;
-
-          if(haveFirebase){
-            updateCardState(orderId,i,{instanceId:instanceId,phoneNumber:phoneNumber,provider:provider,providerOrderId:providerOrderId,countdownExpiry:expiry||Date.now()+600000,otp:otpVal||null,redeemed:!!otpVal});
-          }
-
-          if(otpVal){
-            otpBox.classList.remove('animate-pulse'); otpBox.textContent=otpVal; markButtonRedeemed(i);
-          }else{
-            if(btn){ btn.disabled=true; btn.textContent=(translations[currentLang]&&translations[currentLang].redeeming_button)||'Redeeming...'; btn.classList.add('bg-gray-400','cursor-not-allowed'); }
-            var remainingMs=Math.max(0,(expiry||Date.now()+600000)-Date.now());
-            pollForOtp(orderId, provider, providerOrderId, i, remainingMs);
-          }
-        }
-
-        (function(idx,itm){
-          if(!btn) return;
-          btn.addEventListener('click', function(){
-            var cur=(ensureState(orderId).cards||{})[idx]||{};
-            if((cur.phoneNumber && (cur.otp||cur.providerOrderId)) || (fbCards&&fbCards[String(idx)]&&fbCards[String(idx)].otp)) return;
-
-            btn.disabled=true; btn.textContent=(translations[currentLang]&&translations[currentLang].redeeming_button)||'Redeeming...';
-            btn.classList.add('bg-gray-400','cursor-not-allowed');
-
-            var details=document.getElementById('details-container-'+idx);
-            injectRedemptionUI(details, idx);
-
-            var candidates=itm.productKey?[itm.productKey]:productSlugCandidates(itm.name);
-            requestPhoneNumberWithFallback(orderId, candidates, idx);
-          });
-        })(i,item);
-      }
-    }
-
-    // ---------- Boot ----------
-    function fetchOrderDetails(){
-      var statusText=document.getElementById('status-text');
-      var orderDetailsContainer=document.getElementById('order-details-container');
-      var orderSnDisplay=document.getElementById('order-sn-display');
-      var orderId=getQS('orderId')||getQS('order_sn')||getQS('ordersn')||getQS('orderSN')||getQS('orderSn');
-
-      if(!orderId){
-        if(statusText){ statusText.textContent="Error: Order_ID invalid. Return to previous page."; }
-        return;
-      }
-
-      // rehydrate sets
-      var persisted=ensureState(orderId);
-      try{
-        if(persisted.usedNumbers && persisted.usedNumbers.forEach){ persisted.usedNumbers.forEach(function(n){ if(n){ if(usedNumbers.add) usedNumbers.add(n); else usedNumbers.add[n]=true; } }); }
-        if(persisted.usedProviderOrders && persisted.usedProviderOrders.forEach){ persisted.usedProviderOrders.forEach(function(n){ if(n){ if(usedProviderOrders.add) usedProviderOrders.add(n); else usedProviderOrders.add[n]=true; } }); }
-      }catch(e){}
-
-      fetchWithTimeout(backendUrl+'/get-order-details',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({shopeeId:orderId})
-      },20000).then(function(res){
-        return res.json().catch(function(){ return {}; }).then(function(data){ return {ok:res.ok, body:data}; });
-      }).then(function(resp){
-        if(!resp.ok || !resp.body || !resp.body.success){
-          var msg=(resp.body&&resp.body.message)||('HTTP '+(resp.status||'error'));
-          if(statusText){ statusText.textContent=((translations[currentLang]&&translations[currentLang].status_failed_fetch)||'Failed to fetch')+' ('+msg+')'; }
-          return;
-        }
-        if(statusText){ statusText.textContent=(translations[currentLang]&&translations[currentLang].status_ready)||'Ready.'; }
-        if(orderSnDisplay){ orderSnDisplay.textContent=resp.body.order_sn||orderId; }
-        if(orderDetailsContainer){ orderDetailsContainer.classList.remove('hidden'); }
-
-        var items=normalizeItems(Array.isArray(resp.body.items)?resp.body.items:[]);
-        fbGetAllCards(orderId, function(fbCards){
-          renderProducts(orderId, items, fbCards||{});
-        });
-      })["catch"](function(err){
-        if(statusText){ statusText.textContent=((translations[currentLang]&&translations[currentLang].status_failed_fetch)||'Failed to fetch')+' ('+(err&&err.message||'network error')+')'; }
-      });
-    }
-
-    window.addEventListener('load', function(){
-      var sw=document.getElementById('lang-switcher');
-      if(sw){
-        sw.textContent=(translations[currentLang]&&translations[currentLang].lang_button)||'Bahasa Melayu';
-        sw.addEventListener('click', function(){ setLanguage(currentLang==='en'?'ms':'en'); });
-      }
-      fetchOrderDetails();
+  };
+  let currentLang = 'en';
+  function setLanguage(lang){
+    currentLang = lang;
+    document.querySelectorAll('[data-translate]').forEach(el=>{
+      const key = el.getAttribute('data-translate');
+      const val = translations[lang][key];
+      if (typeof val === 'string') el.textContent = val;
+      else if (typeof val === 'function') el.textContent = val(1,1); // no-op preview
     });
-  })();
-  </script>
+    const sw = document.getElementById('lang-switcher');
+    if (sw) sw.textContent = translations[lang].lang_button;
+  }
+  function t(k,...args){
+    const v = translations[currentLang][k];
+    return typeof v === 'function' ? v(...args) : v;
+  }
+
+  // ---------- Utils / State ----------
+  function getOrderSn(){
+    const qs = new URLSearchParams(window.location.search);
+    return qs.get('order_sn') || qs.get('orderId') || qs.get('ordersn') || '';
+  }
+  // state is kept per orderSn, per index
+  function loadOrderState(orderSn){
+    try { return JSON.parse(localStorage.getItem('hb_voucher_state_' + orderSn)) || {}; }
+    catch { return {}; }
+  }
+  function saveOrderState(orderSn, state){
+    localStorage.setItem('hb_voucher_state_' + orderSn, JSON.stringify(state));
+  }
+  function ensureEntry(state, index){
+    if (!state[index]) state[index] = { status:'idle' };
+    return state[index];
+  }
+
+  // Robust mapping: tolerate "KK.FF.CC", "K K F C", etc.
+  function mapProductKeyFromName(name = "") {
+    const raw = (name || "").toLowerCase();
+    const letters = raw.replace(/[^a-z]/g, ""); // remove dots/spaces → "kkffcc"
+    const has = (re) => re.test(letters);
+
+    if (has(/k+.*f+.*c+/)) return "kfc";                 // kfc, kkffcc, k.f.c, etc.
+    if (letters.includes("zus")) return "zus";
+    if (letters.includes("tealive")) return "tealive";
+    if (letters.includes("chagee")) return "chagee";
+    if (letters.includes("marrybrown")) return "marrybrown";
+    if (letters.includes("kenangan")) return "kenangan";
+    if (letters.includes("luckin")) return "luckin";
+    if (letters.includes("gigi")) return "gigi";
+    if (letters.includes("coffeebean")) return "coffeebean";
+    if (letters.includes("shein")) return "shein";
+    return "kfc"; // safe fallback in your setup
+  }
+
+  // ---------- Fetch order + render ----------
+  async function fetchOrderDetails(orderSn){
+    const res = await fetch(`${backendUrl}/get-order-details`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shopeeId: orderSn })
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
+    return data; // {success, items:[{name, quantity, price}]}
+  }
+
+  function injectRedemptionUI(container, index){
+    container.innerHTML = `
+      <div class="mb-4 text-left">
+        <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">${t('phone_label')}</label>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
+        </div>
+      </div>
+      <div class="mb-2 text-left">
+        <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">${t('otp_label')}</label>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
+        </div>
+      </div>
+      <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
+    `;
+  }
+
+  function setBtnState(btn, mode){ // 'idle' | 'redeeming' | 'redeemed'
+    if (!btn) return;
+    if (mode === 'redeeming') {
+      btn.disabled = true;
+      btn.textContent = t('redeeming_button');
+      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
+      btn.classList.add('bg-gray-400','cursor-not-allowed');
+    } else if (mode === 'redeemed') {
+      btn.disabled = true;
+      btn.textContent = t('redeemed_button');
+      btn.classList.remove('bg-blue-600','hover:bg-blue-700');
+      btn.classList.add('bg-green-600','text-white');
+    } else {
+      btn.disabled = false;
+      btn.textContent = t('redeem_button');
+      btn.classList.remove('bg-gray-400','cursor-not-allowed','bg-green-600');
+      btn.classList.add('bg-blue-600','hover:bg-blue-700','text-white');
+    }
+    btn.dataset.mode = mode;
+  }
+
+  function startTimer(index, endTs, timerEl){
+    function tick(){
+      const remain = Math.max(0, Math.floor((endTs - Date.now())/1000));
+      const mm = Math.floor(remain/60);
+      const ss = ('0'+(remain%60)).slice(-2);
+      timerEl.textContent = `${t('status_waiting_otp')} ${mm}:${ss}`;
+      if (remain <= 0) clearInterval(iv);
+    }
+    tick();
+    const iv = setInterval(tick, 1000);
+    return iv;
+  }
+
+  async function requestPhoneNumber(orderSn, productKey, index, state, btn){
+    // up to 3 tries: primary, retryService (server), then one more try with isRetry again
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
+    const timerEl  = document.getElementById(`timer-${index}`);
+
+    let attempt = 0;
+    const maxAttempts = 3;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        const res = await fetch(`${backendUrl}/get-phone`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopeeId: orderSn, product: productKey, isRetry: attempt > 1 })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (!res.ok) throw new Error(data.message || 'provider error');
+
+        // success
+        state.phoneNumber = data.phoneNumber;
+        state.provider = data.provider;
+        state.providerOrderId = data.providerOrderId;
+        state.countdownEnd = Date.now() + 600000; // 10 mins from now
+        state.status = 'pending';
+        saveOrderState(orderSn, orderState);
+
+        phoneBox.textContent = data.phoneNumber || '—';
+
+        // start polling
+        setBtnState(btn, 'redeeming');
+        const iv = startTimer(index, state.countdownEnd, timerEl);
+        pollForOtp(orderSn, state, index, btn, iv);
+        return;
+      } catch (e) {
+        // transient error: show retry message on attempt 1/2
+        if (attempt < maxAttempts) {
+          phoneBox.textContent = t('getting_number_retrying', attempt, maxAttempts);
+          await new Promise(r=>setTimeout(r, 2500));
+          continue;
+        }
+        // final failure
+        phoneBox.textContent = `Error: ${t('error_get_number')}`;
+        setBtnState(btn, 'idle');
+        state.status = 'idle';
+        saveOrderState(orderSn, orderState);
+        return;
+      }
+    }
+  }
+
+  function pollForOtp(orderSn, state, index, btn, timerIv){
+    const otpBox  = document.getElementById(`otp-box-${index}`);
+    const timerEl = document.getElementById(`timer-${index}`);
+    let stop = false;
+
+    const poll = async () => {
+      if (stop) return;
+      const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
+      if (remain <= 0) {
+        clearInterval(pollIv);
+        clearInterval(timerIv);
+        timerEl.textContent = t('status_timeout');
+        setBtnState(btn, 'idle');
+        state.status = 'idle';
+        saveOrderState(orderSn, orderState);
+        return;
+      }
+      try {
+        const res = await fetch(`${backendUrl}/check-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: state.provider, providerOrderId: state.providerOrderId })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (res.ok && data.otp) {
+          otpBox.textContent = data.otp;
+          state.otp = data.otp;
+          state.status = 'redeemed';
+          saveOrderState(orderSn, orderState);
+
+          clearInterval(pollIv);
+          clearInterval(timerIv);
+          timerEl.textContent = `✅ ${t('status_received')}`;
+          setBtnState(btn, 'redeemed');
+
+          // notify backend that redemption is complete (best effort)
+          fetch(`${backendUrl}/confirm-redemption`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shopeeId: orderSn })
+          }).catch(()=>{});
+        }
+      } catch (_) {}
+    };
+    const pollIv = setInterval(poll, 5000);
+    poll(); // first tick
+  }
+
+  function restoreVoucherUI(orderSn, index, state, btn){
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
+    const timerEl  = document.getElementById(`timer-${index}`);
+
+    // existing phone?
+    if (state.phoneNumber) phoneBox.textContent = state.phoneNumber;
+
+    if (state.status === 'redeemed' && state.otp) {
+      otpBox.textContent = state.otp;
+      setBtnState(btn, 'redeemed');
+      timerEl.textContent = `✅ ${t('status_received')}`;
+      return;
+    }
+
+    if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
+      setBtnState(btn, 'redeeming');
+      const iv = startTimer(index, state.countdownEnd, timerEl);
+      pollForOtp(orderSn, state, index, btn, iv);
+    } else {
+      setBtnState(btn, 'idle');
+    }
+  }
+
+  // ---------- Render flow ----------
+  const orderSn = getOrderSn();
+  const statusText = document.getElementById('status-text');
+  const orderSnDisplay = document.getElementById('order-sn-display');
+  const orderDetailsContainer = document.getElementById('order-details-container');
+  const productsContainer = document.getElementById('products-container');
+
+  let orderState = loadOrderState(orderSn); // { [index]: {...} }
+
+  async function boot(){
+    setLanguage('en');
+    document.getElementById('lang-switcher').addEventListener('click', () => {
+      setLanguage(currentLang === 'en' ? 'ms' : 'en');
+    });
+
+    if (!orderSn) {
+      statusText.textContent = "Error: No order_sn provided.";
+      return;
+    }
+
+    orderSnDisplay.textContent = orderSn;
+    orderDetailsContainer.classList.remove('hidden');
+
+    try {
+      const data = await fetchOrderDetails(orderSn);
+      statusText.textContent = t('status_ready');
+
+      // expand items by quantity
+      const items = [];
+      (data.items || []).forEach(it => {
+        const qty = Number(it.quantity || 1) || 1;
+        for (let i=0;i<qty;i++){
+          items.push({
+            name: it.name || 'Item',
+            productKey: mapProductKeyFromName(it.name || '')
+          });
+        }
+      });
+
+      productsContainer.innerHTML = '';
+      items.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
+        card.innerHTML = `
+          <div class="flex justify-between items-center">
+            <div>
+              <h3 class="font-bold text-lg">${item.name}</h3>
+            </div>
+            <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">${t('redeem_button')}</button>
+          </div>
+          <div id="details-container-${index}" class="mt-4"></div>
+        `;
+        productsContainer.appendChild(card);
+
+        const detailsContainer = document.getElementById(`details-container-${index}`);
+        injectRedemptionUI(detailsContainer, index);
+
+        const btn = document.getElementById(`redeem-btn-${index}`);
+        btn.addEventListener('click', async () => {
+          if (btn.dataset.mode === 'redeeming' || btn.dataset.mode === 'redeemed') return; // guard
+          const st = ensureEntry(orderState, index);
+          setBtnState(btn, 'redeeming');
+          await requestPhoneNumber(orderSn, item.productKey, index, st, btn);
+        });
+
+        // restore from localStorage (if any)
+        const st = ensureEntry(orderState, index);
+        restoreVoucherUI(orderSn, index, st, btn);
+      });
+
+    } catch (e) {
+      statusText.textContent = `${t('status_failed_fetch')} (${e.message})`;
+    }
+  }
+
+  window.addEventListener('load', boot);
+})();
+</script>
 </body>
 </html>
