@@ -38,6 +38,39 @@
 (() => {
   const backendUrl = "https://havicbot-backend.onrender.com";
 
+  // ---------- Safe storage wrapper ----------
+  const SafeStore = (() => {
+    let backend = 'localStorage';
+    let mem = {};
+    const cookie = {
+      get: (k) => {
+        try {
+          const m = document.cookie.split('; ').find(x => x.startsWith(k+'='));
+          return m ? decodeURIComponent(m.split('=').slice(1).join('=')) : null;
+        } catch { return null; }
+      },
+      set: (k, v, days=1) => {
+        try {
+          const maxAge = Math.max(1, Math.floor(days*86400));
+          document.cookie = `${k}=${encodeURIComponent(v)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        } catch {}
+      },
+      remove: (k) => { try { document.cookie = `${k}=; path=/; max-age=0; SameSite=Lax`; } catch {} }
+    };
+    let ls;
+    try { ls = window['localStorage']; } catch {}
+    if (ls) { try { ls.setItem('__t','1'); ls.removeItem('__t'); } catch { backend='cookie'; } }
+    else backend='cookie';
+    if (backend==='cookie') {
+      try { cookie.set('__ck__','1',0.01); const ok = cookie.get('__ck__')==='1'; cookie.remove('__ck__'); if(!ok) backend='memory'; } catch { backend='memory'; }
+    }
+    return {
+      getItem(k){ try{ if(backend==='localStorage') return localStorage.getItem(k); if(backend==='cookie') return cookie.get(k); return mem[k]??null; }catch{return null;} },
+      setItem(k,v){ try{ if(backend==='localStorage') return localStorage.setItem(k,v); if(backend==='cookie') return cookie.set(k,v,3); mem[k]=v; }catch{} },
+      removeItem(k){ try{ if(backend==='localStorage') return localStorage.removeItem(k); if(backend==='cookie') return cookie.remove(k); delete mem[k]; }catch{} }
+    };
+  })();
+
   // ---------- i18n ----------
   const translations = {
     en: {
@@ -58,6 +91,11 @@
       error_get_number: "Unable to get number",
       retry: "Retry",
       getting_number_retrying: (n, total) => `Waiting for available numbers… (retry ${n}/${total})`,
+      copy: "Copy",
+      copied: "Copied!",
+      cancel: "Cancel",
+      generate_new: "Generate New Number",
+      cancel_unlock_prefix: "Cancel available in"
     },
     ms: {
       title: "Penebusan Baucar",
@@ -77,6 +115,11 @@
       error_get_number: "Tidak dapat memperoleh nombor",
       retry: "Cuba Lagi",
       getting_number_retrying: (n, total) => `Menunggu nombor tersedia… (cubaan ${n}/${total})`,
+      copy: "Salin",
+      copied: "Disalin!",
+      cancel: "Batal",
+      generate_new: "Jana Nombor Baharu",
+      cancel_unlock_prefix: "Boleh batal dalam"
     }
   };
   let currentLang = 'en';
@@ -86,41 +129,40 @@
       const key = el.getAttribute('data-translate');
       const val = translations[lang][key];
       if (typeof val === 'string') el.textContent = val;
-      else if (typeof val === 'function') el.textContent = val(1,1); // no-op preview
+      else if (typeof val === 'function') el.textContent = val(1,1);
     });
     const sw = document.getElementById('lang-switcher');
     if (sw) sw.textContent = translations[lang].lang_button;
+    document.querySelectorAll('[data-i18n-copy]').forEach(btn=>{ btn.textContent = translations[lang].copy; });
+    // Update action buttons labels if present
+    document.querySelectorAll('[data-i18n-cancel]').forEach(b=>b.textContent = translations[lang].cancel);
+    document.querySelectorAll('[data-i18n-gnew]').forEach(b=>b.textContent = translations[lang].generate_new);
   }
-  function t(k,...args){
-    const v = translations[currentLang][k];
-    return typeof v === 'function' ? v(...args) : v;
-  }
+  function t(k,...args){ const v = translations[currentLang][k]; return typeof v==='function'?v(...args):v; }
 
   // ---------- Utils / State ----------
   function getOrderSn(){
     const qs = new URLSearchParams(window.location.search);
     return qs.get('order_sn') || qs.get('orderId') || qs.get('ordersn') || '';
   }
-  // state is kept per orderSn, per index
   function loadOrderState(orderSn){
-    try { return JSON.parse(localStorage.getItem('hb_voucher_state_' + orderSn)) || {}; }
+    try { return JSON.parse(SafeStore.getItem('hb_voucher_state_' + orderSn) || '{}') || {}; }
     catch { return {}; }
   }
   function saveOrderState(orderSn, state){
-    localStorage.setItem('hb_voucher_state_' + orderSn, JSON.stringify(state));
+    SafeStore.setItem('hb_voucher_state_' + orderSn, JSON.stringify(state));
   }
   function ensureEntry(state, index){
     if (!state[index]) state[index] = { status:'idle' };
     return state[index];
   }
 
-  // Robust mapping: tolerate "KK.FF.CC", "K K F C", etc.
+  // Product key mapping
   function mapProductKeyFromName(name = "") {
     const raw = (name || "").toLowerCase();
-    const letters = raw.replace(/[^a-z]/g, ""); // remove dots/spaces → "kkffcc"
+    const letters = raw.replace(/[^a-z]/g, "");
     const has = (re) => re.test(letters);
-
-    if (has(/k+.*f+.*c+/)) return "kfc";                 // kfc, kkffcc, k.f.c, etc.
+    if (has(/k+.*f+.*c+/)) return "kfc";
     if (letters.includes("zus")) return "zus";
     if (letters.includes("tealive")) return "tealive";
     if (letters.includes("chagee")) return "chagee";
@@ -130,7 +172,94 @@
     if (letters.includes("gigi")) return "gigi";
     if (letters.includes("coffeebean")) return "coffeebean";
     if (letters.includes("shein")) return "shein";
-    return "kfc"; // safe fallback in your setup
+    return "kfc";
+  }
+
+  // ---------- Copy helpers ----------
+  async function copyText(text, btn){
+    if (!text || text === '—') return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const old = btn.textContent;
+      btn.textContent = t('copied');
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = t('copy'); btn.disabled = false; }, 1200);
+    } catch { prompt("Copy this value:", text); }
+  }
+  function setCopyEnabled(index, cfg){
+    const phoneBtn = document.getElementById(`copy-phone-${index}`);
+    const otpBtn   = document.getElementById(`copy-otp-${index}`);
+    if (phoneBtn) {
+      const en = !!(cfg && cfg.phone);
+      phoneBtn.disabled = !en;
+      phoneBtn.classList.toggle('opacity-50', !en);
+      phoneBtn.classList.toggle('cursor-not-allowed', !en);
+    }
+    if (otpBtn) {
+      const en = !!(cfg && cfg.otp);
+      otpBtn.disabled = !en;
+      otpBtn.classList.toggle('opacity-50', !en);
+      otpBtn.classList.toggle('cursor-not-allowed', !en);
+    }
+  }
+
+  // ---------- Cancel/New Number gating ----------
+  const activeIntervals = {}; // per-index: { timerIv, pollIv, cancelIv }
+  function clearActiveIntervals(index){
+    const h = activeIntervals[index] || {};
+    if (h.timerIv) clearInterval(h.timerIv);
+    if (h.pollIv)  clearInterval(h.pollIv);
+    if (h.cancelIv)clearInterval(h.cancelIv);
+    activeIntervals[index] = {};
+  }
+  function scheduleCancelUnlock(orderSn, index, state){
+    const cancelBtn = document.getElementById(`cancel-btn-${index}`);
+    const newBtn    = document.getElementById(`newnum-btn-${index}`);
+    const label     = document.getElementById(`cancel-timer-${index}`);
+
+    function tick(){
+      const remain = state.cancelUnlockAt ? state.cancelUnlockAt - Date.now() : 0;
+      if (state.status !== 'pending' || state.otp) {
+        // OTP arrived or not pending: hide/disable actions
+        if (label) label.textContent = '';
+        if (cancelBtn){ cancelBtn.disabled = true; cancelBtn.classList.add('cursor-not-allowed'); }
+        if (newBtn){ newBtn.classList.add('hidden'); newBtn.disabled = true; }
+        if (activeIntervals[index]?.cancelIv){ clearInterval(activeIntervals[index].cancelIv); activeIntervals[index].cancelIv = null; }
+        return;
+      }
+
+      if (remain > 0) {
+        const mm = Math.floor(remain/60000);
+        const ss = ('0' + Math.floor((remain%60000)/1000)).slice(-2);
+        if (label) label.textContent = `${t('cancel_unlock_prefix')} ${mm}:${ss}`;
+        if (cancelBtn){
+          cancelBtn.disabled = true;
+          cancelBtn.classList.add('cursor-not-allowed','bg-gray-300','text-gray-600');
+          cancelBtn.classList.remove('bg-red-600','text-white','hover:bg-red-700');
+        }
+        if (newBtn){
+          newBtn.classList.add('hidden');
+          newBtn.disabled = true;
+        }
+      } else {
+        // Unlock
+        if (label) label.textContent = '';
+        if (cancelBtn){
+          cancelBtn.disabled = false;
+          cancelBtn.classList.remove('cursor-not-allowed','bg-gray-300','text-gray-600');
+          cancelBtn.classList.add('bg-red-600','text-white','hover:bg-red-700');
+        }
+        if (newBtn){
+          newBtn.classList.remove('hidden');
+          newBtn.disabled = false;
+        }
+        // keep ticking in case state changes; caller will clear on OTP/cancel
+      }
+    }
+    tick();
+    if (activeIntervals[index]?.cancelIv) clearInterval(activeIntervals[index].cancelIv);
+    activeIntervals[index] = activeIntervals[index] || {};
+    activeIntervals[index].cancelIv = setInterval(tick, 1000);
   }
 
   // ---------- Fetch order + render ----------
@@ -142,7 +271,7 @@
     });
     const data = await res.json().catch(()=>({}));
     if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
-    return data; // {success, items:[{name, quantity, price}]}
+    return data;
   }
 
   function injectRedemptionUI(container, index){
@@ -151,16 +280,47 @@
         <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">${t('phone_label')}</label>
         <div class="flex items-center gap-2 mt-1">
           <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center"></div>
+          <button id="copy-phone-${index}" data-i18n-copy
+                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            ${t('copy')}
+          </button>
         </div>
       </div>
       <div class="mb-2 text-left">
         <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">${t('otp_label')}</label>
         <div class="flex items-center gap-2 mt-1">
           <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center"></div>
+          <button id="copy-otp-${index}" data-i18n-copy
+                  class="px-3 py-2 text-sm bg-gray-200 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            ${t('copy')}
+          </button>
         </div>
       </div>
+
+      <!-- Cancel / Generate New Number controls -->
+      <div class="mt-3 flex items-center justify-between">
+        <div id="cancel-timer-${index}" class="text-xs text-gray-500"></div>
+        <div class="flex gap-2">
+          <button id="cancel-btn-${index}" data-i18n-cancel
+                  class="px-3 py-2 text-sm rounded-lg bg-gray-300 text-gray-600 cursor-not-allowed"
+                  disabled>${t('cancel')}</button>
+          <button id="newnum-btn-${index}" data-i18n-gnew
+                  class="px-3 py-2 text-sm rounded-lg bg-orange-600 text-white hover:bg-orange-700 hidden"
+                  disabled>${t('generate_new')}</button>
+        </div>
+      </div>
+
       <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
     `;
+
+    // Copy handlers
+    const phoneBtn = document.getElementById(`copy-phone-${index}`);
+    const otpBtn   = document.getElementById(`copy-otp-${index}`);
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
+    if (phoneBtn) phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
+    if (otpBtn)   otpBtn.addEventListener('click',   () => copyText(otpBox.textContent.trim(),   otpBtn));
+    setCopyEnabled(index, { phone:false, otp:false });
   }
 
   function setBtnState(btn, mode){ // 'idle' | 'redeeming' | 'redeemed'
@@ -185,23 +345,24 @@
   }
 
   function startTimer(index, endTs, timerEl){
+    let iv;
     function tick(){
       const remain = Math.max(0, Math.floor((endTs - Date.now())/1000));
       const mm = Math.floor(remain/60);
       const ss = ('0'+(remain%60)).slice(-2);
       timerEl.textContent = `${t('status_waiting_otp')} ${mm}:${ss}`;
-      if (remain <= 0) clearInterval(iv);
+      if (remain <= 0 && iv) clearInterval(iv);
     }
     tick();
-    const iv = setInterval(tick, 1000);
+    iv = setInterval(tick, 1000);
     return iv;
   }
 
   async function requestPhoneNumber(orderSn, productKey, index, state, btn){
-    // up to 3 tries: primary, retryService (server), then one more try with isRetry again
     const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
+    const cancelBtn= document.getElementById(`cancel-btn-${index}`);
+    const newBtn   = document.getElementById(`newnum-btn-${index}`);
 
     let attempt = 0;
     const maxAttempts = 3;
@@ -221,29 +382,101 @@
         state.phoneNumber = data.phoneNumber;
         state.provider = data.provider;
         state.providerOrderId = data.providerOrderId;
-        state.countdownEnd = Date.now() + 600000; // 10 mins from now
+        state.countdownEnd = Date.now() + 600000; // 10 mins
+        state.cancelUnlockAt = Date.now() + 300000; // 5 mins lock
         state.status = 'pending';
         saveOrderState(orderSn, orderState);
 
         phoneBox.textContent = data.phoneNumber || '—';
 
-        // start polling
+        // ✅ Phone copy immediately; OTP copy disabled
+        setCopyEnabled(index, { phone: !!state.phoneNumber, otp: false });
+
+        // start polling + timers
         setBtnState(btn, 'redeeming');
-        const iv = startTimer(index, state.countdownEnd, timerEl);
-        pollForOtp(orderSn, state, index, btn, iv);
-        return;
+        const timerIv = startTimer(index, state.countdownEnd, timerEl);
+        const pollIv  = pollForOtp(orderSn, state, index, btn, timerIv);
+        activeIntervals[index] = { ...(activeIntervals[index]||{}), timerIv, pollIv };
+
+        // Lock cancel/new number for 5 minutes
+        scheduleCancelUnlock(orderSn, index, state);
+
+        // Wire actions
+        if (cancelBtn && !cancelBtn.__wired) {
+          cancelBtn.__wired = true;
+          cancelBtn.addEventListener('click', async () => {
+            if (cancelBtn.disabled) return;
+            // best-effort cancel on backend
+            try {
+              await fetch(`${backendUrl}/cancel-number`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ provider: state.provider, providerOrderId: state.providerOrderId })
+              });
+            } catch {}
+
+            // stop intervals
+            clearActiveIntervals(index);
+
+            // reset state
+            state.status = 'idle';
+            delete state.provider;
+            delete state.providerOrderId;
+            delete state.otp;
+            delete state.countdownEnd;
+            delete state.cancelUnlockAt;
+            delete state.phoneNumber;
+            saveOrderState(orderSn, orderState);
+
+            // reset UI
+            phoneBox.textContent = '—';
+            document.getElementById(`otp-box-${index}`).textContent = '';
+            timerEl.textContent = 'Canceled. You can generate a new number.';
+            setCopyEnabled(index, { phone:false, otp:false });
+            setBtnState(btn, 'idle');
+
+            // show "Generate New Number" button
+            if (newBtn){
+              newBtn.classList.remove('hidden');
+              newBtn.disabled = false;
+            }
+            // lock cancel again
+            if (cancelBtn){
+              cancelBtn.disabled = true;
+              cancelBtn.classList.add('cursor-not-allowed','bg-gray-300','text-gray-600');
+              cancelBtn.classList.remove('bg-red-600','text-white','hover:bg-red-700');
+            }
+            const label = document.getElementById(`cancel-timer-${index}`);
+            if (label) label.textContent = '';
+          });
+        }
+
+        if (newBtn && !newBtn.__wired) {
+          newBtn.__wired = true;
+          newBtn.addEventListener('click', async () => {
+            if (newBtn.disabled) return;
+            // reuse Redeem flow
+            const st = ensureEntry(orderState, index);
+            setBtnState(btn, 'redeeming');
+            newBtn.disabled = true;
+            newBtn.classList.add('opacity-70');
+            await requestPhoneNumber(orderSn, productKey, index, st, btn);
+            newBtn.classList.remove('opacity-70');
+          });
+        }
+
+        return; // stop retry loop after success
       } catch (e) {
-        // transient error: show retry message on attempt 1/2
         if (attempt < maxAttempts) {
           phoneBox.textContent = t('getting_number_retrying', attempt, maxAttempts);
           await new Promise(r=>setTimeout(r, 2500));
           continue;
         }
-        // final failure
         phoneBox.textContent = `Error: ${t('error_get_number')}`;
         setBtnState(btn, 'idle');
         state.status = 'idle';
         saveOrderState(orderSn, orderState);
+        setCopyEnabled(index, { phone:false, otp:false });
         return;
       }
     }
@@ -252,20 +485,30 @@
   function pollForOtp(orderSn, state, index, btn, timerIv){
     const otpBox  = document.getElementById(`otp-box-${index}`);
     const timerEl = document.getElementById(`timer-${index}`);
-    let stop = false;
+    const cancelBtn= document.getElementById(`cancel-btn-${index}`);
+    const newBtn   = document.getElementById(`newnum-btn-${index}`);
+
+    let pollIv;
 
     const poll = async () => {
-      if (stop) return;
       const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
+
       if (remain <= 0) {
-        clearInterval(pollIv);
-        clearInterval(timerIv);
+        if (pollIv) clearInterval(pollIv);
+        if (timerIv) clearInterval(timerIv);
+        if (activeIntervals[index]) { activeIntervals[index].pollIv=null; activeIntervals[index].timerIv=null; }
         timerEl.textContent = t('status_timeout');
         setBtnState(btn, 'idle');
         state.status = 'idle';
         saveOrderState(orderSn, orderState);
+        // On timeout: keep phone copy if number existed; OTP disabled
+        setCopyEnabled(index, { phone: !!state.phoneNumber, otp: false });
+        // Allow new number generation (show button)
+        if (newBtn){ newBtn.classList.remove('hidden'); newBtn.disabled = false; }
+        if (cancelBtn){ cancelBtn.disabled = true; }
         return;
       }
+
       try {
         const res = await fetch(`${backendUrl}/check-otp`, {
           method: "POST",
@@ -273,18 +516,31 @@
           body: JSON.stringify({ provider: state.provider, providerOrderId: state.providerOrderId })
         });
         const data = await res.json().catch(()=>({}));
+
         if (res.ok && data.otp) {
           otpBox.textContent = data.otp;
           state.otp = data.otp;
           state.status = 'redeemed';
           saveOrderState(orderSn, orderState);
 
-          clearInterval(pollIv);
-          clearInterval(timerIv);
+          if (pollIv) clearInterval(pollIv);
+          if (timerIv) clearInterval(timerIv);
+          if (activeIntervals[index]) { activeIntervals[index].pollIv=null; activeIntervals[index].timerIv=null; }
           timerEl.textContent = `✅ ${t('status_received')}`;
           setBtnState(btn, 'redeemed');
 
-          // notify backend that redemption is complete (best effort)
+          // ✅ Enable both copies, disable/hide new number actions
+          setCopyEnabled(index, { phone:true, otp:true });
+          if (cancelBtn){ cancelBtn.disabled = true; }
+          if (newBtn){
+            newBtn.disabled = true;
+            newBtn.classList.add('hidden'); // requirement: disabled (hidden is UX-friendly)
+          }
+          // Stop cancel unlock ticker
+          if (activeIntervals[index]?.cancelIv){ clearInterval(activeIntervals[index].cancelIv); activeIntervals[index].cancelIv = null; }
+
+          // Remember last order + best-effort notify
+          SafeStore.setItem('hb_last_order_sn', orderSn);
           fetch(`${backendUrl}/confirm-redemption`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -293,8 +549,10 @@
         }
       } catch (_) {}
     };
-    const pollIv = setInterval(poll, 5000);
-    poll(); // first tick
+
+    pollIv = setInterval(poll, 5000);
+    poll();
+    return pollIv;
   }
 
   function restoreVoucherUI(orderSn, index, state, btn){
@@ -302,22 +560,35 @@
     const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
 
-    // existing phone?
     if (state.phoneNumber) phoneBox.textContent = state.phoneNumber;
 
     if (state.status === 'redeemed' && state.otp) {
       otpBox.textContent = state.otp;
       setBtnState(btn, 'redeemed');
       timerEl.textContent = `✅ ${t('status_received')}`;
+      setCopyEnabled(index, { phone:true, otp:true });
+      // disable actions
+      const cancelBtn= document.getElementById(`cancel-btn-${index}`);
+      const newBtn   = document.getElementById(`newnum-btn-${index}`);
+      if (cancelBtn) cancelBtn.disabled = true;
+      if (newBtn){ newBtn.disabled = true; newBtn.classList.add('hidden'); }
       return;
     }
 
     if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
       setBtnState(btn, 'redeeming');
+      // Resume countdown to OTP
       const iv = startTimer(index, state.countdownEnd, timerEl);
-      pollForOtp(orderSn, state, index, btn, iv);
+      activeIntervals[index] = { ...(activeIntervals[index]||{}), timerIv: iv };
+      setCopyEnabled(index, { phone: !!state.phoneNumber, otp: false });
+      // Resume cancel unlock gating if available
+      if (state.cancelUnlockAt) scheduleCancelUnlock(orderSn, index, state);
+      // Resume polling
+      const pollIv = pollForOtp(orderSn, state, index, btn, iv);
+      activeIntervals[index].pollIv = pollIv;
     } else {
       setBtnState(btn, 'idle');
+      setCopyEnabled(index, { phone: !!state.phoneNumber, otp: false });
     }
   }
 
@@ -380,13 +651,13 @@
 
         const btn = document.getElementById(`redeem-btn-${index}`);
         btn.addEventListener('click', async () => {
-          if (btn.dataset.mode === 'redeeming' || btn.dataset.mode === 'redeemed') return; // guard
+          if (btn.dataset.mode === 'redeeming' || btn.dataset.mode === 'redeemed') return;
           const st = ensureEntry(orderState, index);
           setBtnState(btn, 'redeeming');
           await requestPhoneNumber(orderSn, item.productKey, index, st, btn);
         });
 
-        // restore from localStorage (if any)
+        // restore from storage (if any)
         const st = ensureEntry(orderState, index);
         restoreVoucherUI(orderSn, index, st, btn);
       });
