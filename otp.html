@@ -1,255 +1,238 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voucher Redemption Summary - HavicBot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<script>
+  // --- Translations ---
+  const translations = {
+    en: {
+      title: "Voucher Redemption",
+      status_fetching: "Fetching your order details...",
+      status_ready: "Your products are ready. Please redeem them below.",
+      status_failed_fetch: "Failed to fetch order details.",
+      order_sn_label: "Order SN",
+      product_id_label: "Product ID:",
+      redeem_button: "Redeem",
+      redeeming_button: "Redeeming...",
+      phone_label: "Generated Phone Number",
+      otp_label: "Verification Code (OTP)",
+      status_waiting_otp: "Waiting for OTP...",
+      status_received: "OTP Received!",
+      status_timeout: "OTP not received in time.",
+      lang_button: "Bahasa Melayu"
+    },
+    ms: {
+      title: "Penebusan Baucar",
+      status_fetching: "Memuatkan butiran pesanan anda...",
+      status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
+      status_failed_fetch: "Gagal memuatkan butiran pesanan.",
+      order_sn_label: "SN Pesanan",
+      product_id_label: "ID Produk:",
+      redeem_button: "Tebus",
+      redeeming_button: "Menebus...",
+      phone_label: "Nombor Telefon Dijana",
+      otp_label: "Kod Pengesahan (OTP)",
+      status_waiting_otp: "Menunggu OTP...",
+      status_received: "OTP Diterima!",
+      status_timeout: "OTP tidak diterima dalam masa.",
+      lang_button: "English"
+    }
+  };
 
-    <!-- Language Switcher Button -->
-    <div class="absolute top-4 right-4">
-        <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
-            Bahasa Melayu
-        </button>
-    </div>
+  let currentLang = 'en';
+  function setLanguage(lang) {
+    currentLang = lang;
+    document.querySelectorAll('[data-translate]').forEach(el => {
+      const key = el.getAttribute('data-translate');
+      if (translations[lang][key]) el.textContent = translations[lang][key];
+    });
+    document.getElementById('lang-switcher').textContent = translations[lang].lang_button;
+  }
 
-    <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
-        <div class="text-center">
-            <h1 class="text-3xl font-bold mb-2" data-translate="title" style="color: #EE4D2D;">Voucher Redemption</h1>
-            <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
+  // --- Core Application Logic ---
+  const backendUrl = "https://havicbot-backend.onrender.com";
+
+  // accept ?orderId=... OR ?order_sn=...
+  function getOrderIdFromUrl() {
+    const qs = new URLSearchParams(window.location.search);
+    return qs.get('orderId') || qs.get('order_sn') || qs.get('ordersn') || qs.get('orderSN');
+  }
+
+  // Derive a productKey from item title when backend doesn't send one
+  function mapProductKeyFromName(name = "") {
+    const n = name.toLowerCase();
+    if (n.includes('kfc')) return 'kfc';
+    if (n.includes('zus')) return 'zus';
+    if (n.includes('chagee')) return 'chagee';
+    if (n.includes('tealive')) return 'tealive';
+    if (n.includes('gigi')) return 'gigi';
+    if (n.includes('marrybrown')) return 'marrybrown';
+    if (n.includes('shein')) return 'shein';
+    if (n.includes('coffee bean')) return 'coffeebean';
+    if (n.includes('kenangan')) return 'kenangan';
+    if (n.includes('luckin')) return 'luckin';
+    // safe default
+    return 'shopee';
+  }
+
+  // Normalize whatever the backend sends into the shape we need
+  function normalizeItems(items = []) {
+    return items.map(it => {
+      const name = it.name ?? it.item_name ?? it.title ?? '';
+      const itemId = it.itemId ?? it.item_id ?? it.id ?? '';
+      const quantity = it.quantity ?? it.quantity_purchased ?? 1;
+      const productKey = it.productKey ?? mapProductKeyFromName(name);
+      return { name, itemId, quantity, productKey };
+    });
+  }
+
+  async function fetchOrderDetails() {
+    const orderId = getOrderIdFromUrl();
+    const statusText = document.getElementById('status-text');
+    const orderDetailsContainer = document.getElementById('order-details-container');
+    const orderSnDisplay = document.getElementById('order-sn-display');
+
+    if (!orderId) {
+      statusText.textContent = "Error: No orderId provided in URL.";
+      return;
+    }
+
+    try {
+      // expected backend: { success, order_sn, items: [...] }
+      const res = await fetch(`${backendUrl}/get-order-details`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopeeId: orderId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || "Unknown error");
+
+      statusText.textContent = translations[currentLang].status_ready;
+
+      // Display Order SN (fallback to orderId if backend omitted it)
+      orderSnDisplay.textContent = data.order_sn || orderId;
+      orderDetailsContainer.classList.remove('hidden');
+
+      const items = normalizeItems(Array.isArray(data.items) ? data.items : []);
+      renderProducts(orderId, items);
+    } catch (err) {
+      document.getElementById('status-text').textContent =
+        `${translations[currentLang].status_failed_fetch} (${err.message})`;
+    }
+  }
+
+  function renderProducts(orderId, items) {
+    const container = document.getElementById('products-container');
+    container.innerHTML = '';
+
+    const expanded = [];
+    items.forEach(item => {
+      const q = Number(item.quantity) || 1;
+      for (let i = 0; i < q; i++) expanded.push({ ...item });
+    });
+
+    expanded.forEach((item, index) => {
+      const card = document.createElement('div');
+      card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
+      card.innerHTML = `
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-lg">${item.name}</h3>
+            <p class="text-xs text-gray-500"><span data-translate="product_id_label">Product ID:</span> ${item.itemId || '—'}</p>
+          </div>
+          <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>
         </div>
+        <div id="details-container-${index}" class="mt-4"></div>
+      `;
+      container.appendChild(card);
 
-        <!-- Order SN Display -->
-        <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
-            <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
-            <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
+      document.getElementById(`redeem-btn-${index}`).addEventListener('click', async (e) => {
+        const btn = e.target;
+        btn.disabled = true;
+        btn.textContent = translations[currentLang].redeeming_button;
+        btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+
+        const detailsContainer = document.getElementById(`details-container-${index}`);
+        injectRedemptionUI(detailsContainer, index);
+
+        // ensure we always pass a defined product key
+        await requestPhoneNumber(orderId, item.productKey || mapProductKeyFromName(item.name), index);
+      });
+    });
+  }
+
+  function injectRedemptionUI(container, index) {
+    container.innerHTML = `
+      <div class="mb-4 text-left">
+        <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
         </div>
-        
-        <!-- Container for Product Cards -->
-        <div id="products-container" class="space-y-4">
-            <!-- Product cards will be dynamically inserted here -->
+      </div>
+      <div class="mb-2 text-left">
+        <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
         </div>
-    </div>
+      </div>
+      <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
+    `;
+  }
 
-    <!-- ================== APPLICATION SCRIPT ================== -->
-    <script>
-        // --- Translations ---
-        const translations = {
-            en: {
-                title: "Voucher Redemption",
-                status_fetching: "Fetching your order details...",
-                status_ready: "Your products are ready. Please redeem them below.",
-                status_failed_fetch: "Failed to fetch order details.",
-                order_sn_label: "Order SN",
-                product_id_label: "Product ID:",
-                redeem_button: "Redeem",
-                redeeming_button: "Redeeming...",
-                phone_label: "Generated Phone Number",
-                otp_label: "Verification Code (OTP)",
-                status_waiting_otp: "Waiting for OTP...",
-                status_received: "OTP Received!",
-                status_timeout: "OTP not received in time.",
-                lang_button: "Bahasa Melayu"
-            },
-            ms: {
-                title: "Penebusan Baucar",
-                status_fetching: "Memuatkan butiran pesanan anda...",
-                status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
-                status_failed_fetch: "Gagal memuatkan butiran pesanan.",
-                order_sn_label: "SN Pesanan",
-                product_id_label: "ID Produk:",
-                redeem_button: "Tebus",
-                redeeming_button: "Menebus...",
-                phone_label: "Nombor Telefon Dijana",
-                otp_label: "Kod Pengesahan (OTP)",
-                status_waiting_otp: "Menunggu OTP...",
-                status_received: "OTP Diterima!",
-                status_timeout: "OTP tidak diterima dalam masa.",
-                lang_button: "English"
-            }
-        };
+  async function requestPhoneNumber(orderId, productKey, index) {
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    try {
+      const res = await fetch(`${backendUrl}/get-phone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopeeId: orderId, product: productKey, isRetry: false })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
 
-        let currentLang = 'en';
+      phoneBox.classList.remove("animate-pulse");
+      phoneBox.textContent = data.phoneNumber;
+      pollForOtp(orderId, data.provider, data.providerOrderId, index);
+    } catch (err) {
+      phoneBox.classList.remove("animate-pulse");
+      phoneBox.textContent = `Error: ${err.message}`;
+    }
+  }
 
-        function setLanguage(lang) {
-            currentLang = lang;
-            document.querySelectorAll('[data-translate]').forEach(el => {
-                const key = el.getAttribute('data-translate');
-                if (translations[lang][key]) {
-                    el.textContent = translations[lang][key];
-                }
-            });
-            document.getElementById('lang-switcher').textContent = translations[lang].lang_button;
+  function pollForOtp(orderId, provider, providerOrderId, index) {
+    const otpBox = document.getElementById(`otp-box-${index}`);
+    const timerEl = document.getElementById(`timer-${index}`);
+    let countdown = 600;
+
+    const timerInterval = setInterval(() => {
+      timerEl.textContent = `${translations[currentLang].status_waiting_otp} ${Math.floor(countdown/60)}:${('0'+countdown%60).slice(-2)}`;
+      if (--countdown < 0) clearInterval(timerInterval);
+    }, 1000);
+
+    const otpInterval = setInterval(async () => {
+      if (countdown < 0) {
+        clearInterval(otpInterval);
+        timerEl.textContent = translations[currentLang].status_timeout;
+        return;
+      }
+      try {
+        const res = await fetch(`${backendUrl}/check-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, providerOrderId })
+        });
+        const data = await res.json();
+        if (res.ok && data.otp) {
+          otpBox.classList.remove("animate-pulse"); // fix class typo
+          otpBox.textContent = data.otp;
+          clearInterval(otpInterval);
+          clearInterval(timerInterval);
+          timerEl.textContent = `✅ ${translations[currentLang].status_received}`;
         }
+      } catch (_) { /* ignore polling errors */ }
+    }, 5000);
+  }
 
-        // --- Core Application Logic ---
-        const backendUrl = "https://havicbot-backend.onrender.com";
-
-        function getQueryParam(param) {
-            return new URLSearchParams(window.location.search).get(param);
-        }
-
-        async function fetchOrderDetails() {
-            const orderId = getQueryParam('orderId');
-            const statusText = document.getElementById('status-text');
-            const orderDetailsContainer = document.getElementById('order-details-container');
-            const orderSnDisplay = document.getElementById('order-sn-display');
-
-            if (!orderId) {
-                statusText.textContent = "Error: No orderId provided in URL.";
-                return;
-            }
-
-            try {
-                // This assumes your backend returns a structure like:
-                // { success: true, order_sn: "...", items: [{ name, itemId, quantity, productKey }] }
-                const res = await fetch(`${backendUrl}/get-order-details`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ shopeeId: orderId })
-                });
-                const data = await res.json();
-                if (!res.ok || !data.success) throw new Error(data.message || "Unknown error");
-
-                statusText.textContent = translations[currentLang].status_ready;
-                
-                // Display Order SN
-                orderSnDisplay.textContent = data.order_sn;
-                orderDetailsContainer.classList.remove('hidden');
-
-                renderProducts(orderId, data.items);
-
-            } catch (err) {
-                statusText.textContent = `${translations[currentLang].status_failed_fetch} (${err.message})`;
-            }
-        }
-
-        function renderProducts(orderId, items) {
-            const container = document.getElementById('products-container');
-            container.innerHTML = '';
-
-            const expandedItems = [];
-            items.forEach(item => {
-                for (let i = 0; i < item.quantity; i++) {
-                    // Pass all necessary info along
-                    expandedItems.push({ 
-                        name: item.name, 
-                        productKey: item.productKey, 
-                        itemId: item.itemId 
-                    });
-                }
-            });
-
-            expandedItems.forEach((item, index) => {
-                const card = document.createElement('div');
-                card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
-                card.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h3 class="font-bold text-lg">${item.name}</h3>
-                            <p class="text-xs text-gray-500"><span data-translate="product_id_label">Product ID:</span> ${item.itemId}</p>
-                        </div>
-                        <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">Redeem</button>
-                    </div>
-                    <div id="details-container-${index}" class="mt-4"></div>
-                `;
-                container.appendChild(card);
-
-                document.getElementById(`redeem-btn-${index}`).addEventListener('click', (e) => {
-                    const btn = e.target;
-                    btn.disabled = true;
-                    btn.textContent = translations[currentLang].redeeming_button;
-                    btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    
-                    const detailsContainer = document.getElementById(`details-container-${index}`);
-                    injectRedemptionUI(detailsContainer, index);
-                    
-                    requestPhoneNumber(orderId, item.productKey, index);
-                });
-            });
-        }
-
-        function injectRedemptionUI(container, index) {
-            container.innerHTML = `
-                <div class="mb-4 text-left">
-                    <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">Generated Phone Number</label>
-                    <div class="flex items-center gap-2 mt-1">
-                        <div id="phone-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-gray-900 text-center animate-pulse"></div>
-                    </div>
-                </div>
-                <div class="mb-2 text-left">
-                    <label class="block text-sm font-medium text-gray-700" data-translate="otp_label">Verification Code (OTP)</label>
-                    <div class="flex items-center gap-2 mt-1">
-                        <div id="otp-box-${index}" class="flex-grow text-sm font-semibold bg-gray-50 border border-gray-300 p-3 h-12 flex items-center justify-center rounded-lg text-blue-600 text-center animate-pulse"></div>
-                    </div>
-                </div>
-                <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
-            `;
-        }
-        
-        async function requestPhoneNumber(orderId, productKey, index) {
-            const phoneBox = document.getElementById(`phone-box-${index}`);
-            try {
-                const res = await fetch(`${backendUrl}/get-phone`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ shopeeId: orderId, product: productKey, isRetry: false })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message);
-
-                phoneBox.classList.remove("animate-pulse");
-                phoneBox.textContent = data.phoneNumber;
-                pollForOtp(orderId, data.provider, data.providerOrderId, index);
-            } catch (err) {
-                phoneBox.classList.remove("animate-pulse");
-                phoneBox.textContent = `Error: ${err.message}`;
-            }
-        }
-
-        function pollForOtp(orderId, provider, providerOrderId, index) {
-            const otpBox = document.getElementById(`otp-box-${index}`);
-            const timerEl = document.getElementById(`timer-${index}`);
-            let countdown = 600;
-
-            const timerInterval = setInterval(() => {
-                timerEl.textContent = `${translations[currentLang].status_waiting_otp} ${Math.floor(countdown/60)}:${('0'+countdown%60).slice(-2)}`;
-                if (--countdown < 0) clearInterval(timerInterval);
-            }, 1000);
-
-            const otpInterval = setInterval(async () => {
-                 if(countdown < 0) {
-                     clearInterval(otpInterval);
-                     timerEl.textContent = translations[currentLang].status_timeout;
-                     return;
-                 }
-                 try {
-                    const res = await fetch(`${backendUrl}/check-otp`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ provider, providerOrderId })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.otp) {
-                        otpBox.classList.remove("animate-animate-pulse");
-                        otpBox.textContent = data.otp;
-                        clearInterval(otpInterval);
-                        clearInterval(timerInterval);
-                        timerEl.textContent = `✅ ${translations[currentLang].status_received}`;
-                    }
-                } catch (err) { /* ignore polling errors */ }
-            }, 5000);
-        }
-
-        window.onload = () => {
-            fetchOrderDetails();
-            document.getElementById('lang-switcher').addEventListener('click', () => {
-                setLanguage(currentLang === 'en' ? 'ms' : 'en');
-            });
-        };
-    </script>
-</body>
-</html>
+  window.onload = () => {
+    fetchOrderDetails();
+    document.getElementById('lang-switcher').addEventListener('click', () => {
+      setLanguage(currentLang === 'en' ? 'ms' : 'en');
+    });
+  };
+</script>
