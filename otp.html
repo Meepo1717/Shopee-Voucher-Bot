@@ -123,12 +123,11 @@
     return state[index];
   }
 
-  // Robust mapping
+  // Product mapping
   function mapProductKeyFromName(name = "") {
     const raw = (name || "").toLowerCase();
     const letters = raw.replace(/[^a-z]/g, "");
     const has = (re) => re.test(letters);
-
     if (has(/k+.*f+.*c+/)) return "kfc";
     if (letters.includes("zus")) return "zus_coffee";
     if (letters.includes("tealive")) return "tealive";
@@ -142,7 +141,7 @@
     return "kfc";
   }
 
-  // Store for cancel timers to clear them later
+  // Store for cancel timers
   let cancelIntervals = {};
 
   // ---------- Copy helpers ----------
@@ -200,7 +199,7 @@
     });
     const data = await res.json().catch(()=>({}));
     if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
-    return data;
+    return data; // contains { success, items, viewKey }
   }
 
   function injectRedemptionUI(container, index){
@@ -322,7 +321,7 @@
           body: JSON.stringify({
             shopeeId: orderSn,
             product: productKey,
-            productIndex: index,    // per-item
+            productIndex: index,
             isRetry: attempt > 1
           })
         });
@@ -342,7 +341,7 @@
         const phoneBtn = document.getElementById(`copy-phone-${index}`);
         setSingleCopyEnabled(phoneBtn, !!data.phoneNumber);
 
-        manageCancelButton(orderSn, index, state); // hide cancel area on success
+        manageCancelButton(orderSn, index, state);
 
         setBtnState(btn, 'redeeming');
         const iv = startTimer(index, state.countdownEnd, timerEl);
@@ -387,7 +386,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            shopeeId: orderSn,              // per-order context for server to update right item
+            shopeeId: orderSn,
             provider: state.provider,
             providerOrderId: state.providerOrderId
           })
@@ -426,7 +425,7 @@
 
     if (state.phoneNumber) {
       phoneBox.textContent = state.phoneNumber;
-      setSingleCopyEnabled(phoneBtn, true); // enable phone copy if already present
+      setSingleCopyEnabled(phoneBtn, true); // enable phone copy if present
     }
 
     if (state.status === 'redeemed' && state.otp) {
@@ -446,7 +445,7 @@
       pollForOtp(orderSn, state, index, btn, iv);
       document.getElementById(`cancel-container-${index}`).classList.add('hidden');
     } else if (state.requestStartTs) {
-      // User reloaded while waiting for a phone number. Restore cancel timer.
+      // waiting for number (pre-allocation), restore cancel timer
       btn.classList.add('hidden');
       manageCancelButton(orderSn, index, state);
     } else {
@@ -526,10 +525,106 @@
     });
   }
 
+  // === Cross-device partial resume ===
+  async function mergePartialFromServer(viewKey, itemsCount){
+    if (!viewKey) return;
+    try {
+      const res = await fetch(`${backendUrl}/get-redemption-partial`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewKey })
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || !data.success) return;
+
+      (data.items || []).forEach((serverItem, index) => {
+        const phoneBox = document.getElementById(`phone-box-${index}`);
+        const otpBox   = document.getElementById(`otp-box-${index}`);
+        const timerEl  = document.getElementById(`timer-${index}`);
+        const redeemBtn= document.getElementById(`redeem-btn-${index}`);
+        if (!phoneBox || !otpBox) return;
+
+        const st = ensureEntry(orderState, index);
+
+        // Merge from server
+        st.phoneNumber     = serverItem.phoneNumber || st.phoneNumber;
+        st.otp             = serverItem.otp || st.otp;
+        st.provider        = serverItem.provider || st.provider;
+        st.providerOrderId = serverItem.providerOrderId || st.providerOrderId;
+        st.status          = serverItem.status || st.status;
+
+        // Render based on status
+        if (st.status === 'redeemed') {
+          phoneBox.textContent = st.phoneNumber || '—';
+          otpBox.textContent   = st.otp || '—';
+          setCopyEnabled(index, !!(st.phoneNumber || st.otp));
+          if (timerEl) timerEl.textContent = '✅ ' + t('status_received');
+          if (redeemBtn) { setBtnState(redeemBtn, 'redeemed'); redeemBtn.classList.add('hidden'); }
+        } else if (st.status === 'pending') {
+          // Show phone, enable phone copy, resume OTP polling cross-device
+          phoneBox.textContent = st.phoneNumber || '—';
+          setSingleCopyEnabled(document.getElementById(`copy-phone-${index}`), !!st.phoneNumber);
+          setCopyEnabled(index, false); // OTP still locked
+          if (timerEl) timerEl.textContent = t('status_waiting_otp');
+
+          if (!st._polling && st.provider && st.providerOrderId) {
+            st._polling = true;
+            resumePollingWithoutCountdown(orderSn, st, index, redeemBtn, timerEl);
+          }
+
+          if (redeemBtn) setBtnState(redeemBtn, 'redeeming');
+        } else {
+          // idle: nothing to merge
+        }
+      });
+
+      saveOrderState(orderSn, orderState);
+    } catch (_) {}
+  }
+
+  function resumePollingWithoutCountdown(orderSn, state, index, btn, timerEl){
+    let pollIv;
+    const otpBox = document.getElementById(`otp-box-${index}`);
+    const poll = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/check-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shopeeId: orderSn,
+            provider: state.provider,
+            providerOrderId: state.providerOrderId
+          })
+        });
+        const data = await res.json().catch(()=>({}));
+        if (res.ok && data.otp) {
+          otpBox.textContent = data.otp;
+          state.otp = data.otp;
+          state.status = 'redeemed';
+          saveOrderState(orderSn, orderState);
+
+          clearInterval(pollIv);
+          const timerElLocal = document.getElementById(`timer-${index}`);
+          if (timerElLocal) timerElLocal.textContent = `✅ ${t('status_received')}`;
+          if (btn) setBtnState(btn, 'redeemed');
+          setCopyEnabled(index, true);
+
+          fetch(`${backendUrl}/confirm-redemption`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shopeeId: orderSn, productIndex: index })
+          }).catch(()=>{});
+        }
+      } catch {}
+    };
+    pollIv = setInterval(poll, 5000);
+    poll();
+  }
+
   // ---------- Render flow ----------
   const qs = new URLSearchParams(window.location.search);
   const orderSn = getOrderSn();
-  const viewKey = qs.get('viewKey'); // NEW
+  const viewKey = qs.get('viewKey'); // for view-only mode
   const statusText = document.getElementById('status-text');
   const orderSnDisplay = document.getElementById('order-sn-display');
   const orderDetailsContainer = document.getElementById('order-details-container');
@@ -558,11 +653,12 @@
     orderDetailsContainer.classList.remove('hidden');
 
     try {
-      const data = await fetchOrderDetails(orderSn);
+      // Ensure items skeleton + get permanent viewKey early
+      const details = await fetchOrderDetails(orderSn); // { success, items, viewKey }
       statusText.textContent = t('status_ready');
 
       const items = [];
-      (data.items || []).forEach(it => {
+      (details.items || []).forEach(it => {
         const qty = Number(it.quantity || 1) || 1;
         for (let i=0;i<qty;i++){
           items.push({
@@ -601,7 +697,7 @@
           redeemBtn.classList.add('hidden');
           manageCancelButton(orderSn, index, st);
 
-          setBtnState(redeemBtn, 'redeeming'); // visually uses redeemBtn's state
+          setBtnState(redeemBtn, 'redeeming');
           await requestPhoneNumber(orderSn, item.productKey, index, st, redeemBtn);
         };
 
@@ -623,6 +719,9 @@
         const st = ensureEntry(orderState, index);
         restoreVoucherUI(orderSn, index, st, redeemBtn);
       });
+
+      // Cross-device partial resume
+      await mergePartialFromServer(details.viewKey, items.length);
 
     } catch (e) {
       statusText.textContent = `${t('status_failed_fetch')} (${e.message})`;
