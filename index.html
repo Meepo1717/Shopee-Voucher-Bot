@@ -47,7 +47,6 @@
     function setDisabled(el, on){ el.disabled=on; el.classList.toggle('opacity-60',on); el.classList.toggle('cursor-not-allowed',on); }
 
     async function verifyAndGo(sn){
-      // Server does the escrow verification here
       const res = await fetch(backendUrl + "/verify-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,14 +54,23 @@
       });
       const json = await res.json().catch(() => ({}));
 
+      // NEW: Permanent view-only path via viewKey
+      if (res.ok && json && json.code === "CLAIMED" && json.viewKey) {
+        showStatus("Voucher has been claimed. Showing your previous details…", "warn");
+        var url = new URL('otp.html', window.location.href);
+        url.searchParams.set('order_sn', sn);
+        url.searchParams.set('viewKey', json.viewKey);
+        window.location.href = url.toString();
+        return;
+      }
+
       if (!res.ok || json.success !== true) {
         showStatus(json.message || "Order is not paid / invalid.", "err");
         return;
       }
-      // Prefer server-sent order_sn if present
+
       var finalSn = json.order_sn || sn;
       showStatus("✅ Order verified. Redirecting…", "ok");
-      // Redirect to otp.html in the same folder
       var url = new URL('otp.html', window.location.href);
       url.searchParams.set('order_sn', finalSn);
       window.location.href = url.toString();
