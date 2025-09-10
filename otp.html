@@ -31,6 +31,19 @@
     <div id="products-container" class="space-y-4"></div>
   </div>
 
+  <!-- Notice Modal (NEW) -->
+  <div id="notice-modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 z-50">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+      <h3 class="text-lg font-semibold mb-2">Notice</h3>
+      <p id="notice-msg" class="text-gray-700 mb-6"></p>
+      <div class="text-right">
+        <button id="notice-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script>
 (() => {
   const backendUrl = "https://havicbot-backend.onrender.com";
@@ -126,7 +139,7 @@
   // Product mapping
   function mapProductKeyFromName(name = "") {
     const raw = (name || "").toLowerCase();
-    const letters = raw.replace(/[^a-z]/g, "");
+       const letters = raw.replace(/[^a-z]/g, "");
     const has = (re) => re.test(letters);
     if (has(/k+.*f+.*c+/)) return "kfc";
     if (letters.includes("zus")) return "zus_coffee";
@@ -136,6 +149,7 @@
     if (letters.includes("kenangan")) return "kenangan_coffee";
     if (letters.includes("luckin")) return "luckin_coffee";
     if (letters.includes("gigi")) return "gigi_coffee";
+    // Coffee Bean intentionally removed
     if (letters.includes("shein")) return "shein";
     return "kfc";
   }
@@ -198,7 +212,7 @@
     });
     const data = await res.json().catch(()=>({}));
     if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
-    return data; // contains { success, items, viewKey }
+    return data; // { success, items, viewKey, notices? }
   }
 
   function injectRedemptionUI(container, index){
@@ -305,7 +319,6 @@
 
   async function requestPhoneNumber(orderSn, productKey, index, state, btn){
     const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
 
     let attempt = 0;
@@ -335,7 +348,7 @@
         state.status = 'pending';
         saveOrderState(orderSn, orderState);
 
-        phoneBox.textContent = data.phoneNumber || '—';
+        document.getElementById(`phone-box-${index}`).textContent = data.phoneNumber || '—';
         // Enable phone copy immediately
         const phoneBtn = document.getElementById(`copy-phone-${index}`);
         setSingleCopyEnabled(phoneBtn, !!data.phoneNumber);
@@ -620,6 +633,23 @@
     poll();
   }
 
+  // ---------- Notice popup helpers (NEW) ----------
+  function showPopup(message){
+    const modal = document.getElementById('notice-modal');
+    const msgEl = document.getElementById('notice-msg');
+    msgEl.textContent = message || '';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+  function wirePopupClose(){
+    const ok = document.getElementById('notice-ok');
+    if (ok) ok.addEventListener('click', () => {
+      const modal = document.getElementById('notice-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+  }
+
   // ---------- Render flow ----------
   const qs = new URLSearchParams(window.location.search);
   const orderSn = getOrderSn();
@@ -637,6 +667,9 @@
       setLanguage(currentLang === 'en' ? 'ms' : 'en');
     });
 
+    // wire modal close
+    wirePopupClose();
+
     if (viewKey) {
       // Permanent, cross-device view-only path
       await renderViewOnlyByKey(viewKey);
@@ -653,8 +686,13 @@
 
     try {
       // Ensure items skeleton + get permanent viewKey early
-      const details = await fetchOrderDetails(orderSn); // { success, items, viewKey }
+      const details = await fetchOrderDetails(orderSn); // { success, items, viewKey, notices? }
       statusText.textContent = t('status_ready');
+
+      // (NEW) Show Coffee Bean notice if present
+      if (details.notices && details.notices.coffeeBean) {
+        showPopup(details.notices.coffeeBean);
+      }
 
       const items = [];
       (details.items || []).forEach(it => {
