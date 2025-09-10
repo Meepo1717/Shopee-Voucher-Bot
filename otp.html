@@ -130,13 +130,13 @@
     const has = (re) => re.test(letters);
 
     if (has(/k+.*f+.*c+/)) return "kfc";
-    if (letters.includes("zus")) return "zus";
+    if (letters.includes("zus")) return "zus_coffee";
     if (letters.includes("tealive")) return "tealive";
     if (letters.includes("chagee")) return "chagee";
     if (letters.includes("marrybrown")) return "marrybrown";
-    if (letters.includes("kenangan")) return "kenangan";
-    if (letters.includes("luckin")) return "luckin";
-    if (letters.includes("gigi")) return "gigi";
+    if (letters.includes("kenangan")) return "kenangan_coffee";
+    if (letters.includes("luckin")) return "luckin_coffee";
+    if (letters.includes("gigi")) return "gigi_coffee";
     if (letters.includes("coffeebean")) return "coffeebean";
     if (letters.includes("shein")) return "shein";
     return "kfc";
@@ -161,6 +161,12 @@
       prompt("Copy this value:", text);
     }
   }
+  function setSingleCopyEnabled(btn, enabled){
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.classList.toggle('opacity-50', !enabled);
+    btn.classList.toggle('cursor-not-allowed', !enabled);
+  }
   function setCopyEnabled(index, enabled){
     const phoneBtn = document.getElementById(`copy-phone-${index}`);
     const otpBtn   = document.getElementById(`copy-otp-${index}`);
@@ -177,13 +183,12 @@
     const phoneBox = document.getElementById(`phone-box-${index}`);
     const otpBox   = document.getElementById(`otp-box-${index}`);
 
-    if (phoneBtn) {
-      phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
-    }
-    if (otpBtn) {
-      otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
-    }
-    setCopyEnabled(index, false); // disabled initially
+    if (phoneBtn) phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
+    if (otpBtn)   otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
+
+    // start with both disabled; enable phone as soon as number appears
+    setSingleCopyEnabled(phoneBtn, false);
+    setSingleCopyEnabled(otpBtn, false);
   }
 
   // ---------- Fetch order + render (normal mode) ----------
@@ -314,7 +319,12 @@
         const res = await fetch(`${backendUrl}/get-phone`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId: orderSn, product: productKey, isRetry: attempt > 1 })
+          body: JSON.stringify({
+            shopeeId: orderSn,
+            product: productKey,
+            productIndex: index,    // per-item
+            isRetry: attempt > 1
+          })
         });
         const data = await res.json().catch(()=>({}));
         if (!res.ok) throw new Error(data.message || 'provider error');
@@ -328,6 +338,10 @@
         saveOrderState(orderSn, orderState);
 
         phoneBox.textContent = data.phoneNumber || '—';
+        // Enable phone copy immediately
+        const phoneBtn = document.getElementById(`copy-phone-${index}`);
+        setSingleCopyEnabled(phoneBtn, !!data.phoneNumber);
+
         manageCancelButton(orderSn, index, state); // hide cancel area on success
 
         setBtnState(btn, 'redeeming');
@@ -372,7 +386,11 @@
         const res = await fetch(`${backendUrl}/check-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: state.provider, providerOrderId: state.providerOrderId })
+          body: JSON.stringify({
+            shopeeId: orderSn,              // per-order context for server to update right item
+            provider: state.provider,
+            providerOrderId: state.providerOrderId
+          })
         });
         const data = await res.json().catch(()=>({}));
         if (res.ok && data.otp) {
@@ -387,11 +405,11 @@
           setBtnState(btn, 'redeemed');
           setCopyEnabled(index, true);
 
-          // notify backend
+          // notify backend (per-item)
           fetch(`${backendUrl}/confirm-redemption`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderSn })
+            body: JSON.stringify({ shopeeId: orderSn, productIndex: index })
           }).catch(()=>{});
         }
       } catch (_) {}
@@ -404,8 +422,12 @@
     const phoneBox = document.getElementById(`phone-box-${index}`);
     const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
+    const phoneBtn = document.getElementById(`copy-phone-${index}`);
 
-    if (state.phoneNumber) phoneBox.textContent = state.phoneNumber;
+    if (state.phoneNumber) {
+      phoneBox.textContent = state.phoneNumber;
+      setSingleCopyEnabled(phoneBtn, true); // enable phone copy if already present
+    }
 
     if (state.status === 'redeemed' && state.otp) {
       otpBox.textContent = state.otp;
@@ -419,6 +441,7 @@
     if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
       setBtnState(btn, 'redeeming');
       const iv = startTimer(index, state.countdownEnd, timerEl);
+      setSingleCopyEnabled(phoneBtn, !!state.phoneNumber);
       setCopyEnabled(index, false);
       pollForOtp(orderSn, state, index, btn, iv);
       document.getElementById(`cancel-container-${index}`).classList.add('hidden');
@@ -432,7 +455,7 @@
     }
   }
 
-  // === NEW: view-only rendering by permanent viewKey ===
+  // === View-only rendering by permanent viewKey (SHOW FULL VALUES) ===
   async function renderViewOnlyByKey(viewKey) {
     const statusText = document.getElementById('status-text');
     const orderSnDisplay = document.getElementById('order-sn-display');
@@ -486,14 +509,14 @@
       const timerEl  = document.getElementById(`timer-${index}`);
       const cancelWrap = document.getElementById(`cancel-container-${index}`);
 
-      // Use masked values if present; fallback to full fields if server allows
-      phoneBox.textContent = item.phoneMasked || item.phoneNumber || '—';
-      otpBox.textContent   = item.otpMasked   || item.otp         || '—';
+      // FULL VALUES in view-only
+      phoneBox.textContent = item.phoneNumber || '—';
+      otpBox.textContent   = item.otp || '—';
 
       timerEl.textContent = (currentLang === 'ms') ? 'Mod lihat sahaja' : 'View-only mode';
 
-      // Disable/Hide interactive elements
-      setCopyEnabled(index, !!(item.otp || item.otpMasked)); // allow copying if you want
+      // Allow copying (full values)
+      setCopyEnabled(index, !!(item.phoneNumber || item.otp));
       if (cancelWrap) cancelWrap.classList.add('hidden');
       const redeemBtn = document.getElementById(`redeem-btn-${index}`);
       if (redeemBtn) {
