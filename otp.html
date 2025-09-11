@@ -153,7 +153,6 @@
     if (letters.includes("kenangan")) return "kenangan_coffee";
     if (letters.includes("luckin")) return "luckin_coffee";
     if (letters.includes("gigi")) return "gigi_coffee";
-    // Coffee Bean intentionally removed
     if (letters.includes("shein")) return "shein";
     return "kfc";
   }
@@ -426,6 +425,17 @@
           })
         });
         const data = await res.json().catch(()=>({}));
+
+        // Price-cap signal from server → show local, per-card message and stop
+        if (!res.ok && (data.code === 'NO_CHEAP_NUMBERS' || /NO_CHEAP_NUMBERS|PRICE_TOO_HIGH/i.test(data.message || ''))) {
+          phoneBox.textContent = "no numbers available currently. Please try again later";
+          setBtnState(btn, 'idle');
+          state.status = 'idle';
+          saveOrderState(orderSn, orderState);
+          manageCancelButton(orderSn, index, state);
+          return; // do not retry; only this card is affected
+        }
+
         if (!res.ok) throw new Error(data.message || 'provider error');
 
         // SUCCESS
@@ -475,7 +485,7 @@
     let pollIv;
 
     const poll = async () => {
-      // Update "Change Number" enabled/disabled state every tick
+      // Update "Change Number" enable state every tick
       updateChangeNumberControl(orderSn, index, state);
 
       const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
@@ -554,7 +564,6 @@
       pollForOtp(orderSn, state, index, btn, iv);
       document.getElementById(`cancel-container-${index}`).classList.add('hidden');
 
-      // If we reloaded after allocation, maybe numberAllocatedAt missing; set fallback
       if (!state.numberAllocatedAt && state.phoneNumber) state.numberAllocatedAt = Date.now();
       updateChangeNumberControl(orderSn, index, state);
     } else if (state.requestStartTs) {
