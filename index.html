@@ -78,7 +78,7 @@
 
     function onClick(){
       var sn = (input.value || "").trim();
-      if(!sn){ showStatus("Please enter a valid Order SN.", "err"); return; }
+      if(!sn){ showStatus("Please enter a valid Order ID.", "err"); return; }
       setDisabled(btn, true);
       showStatus("Verifying order…", "warn");
       verifyAndGo(sn).catch(function(){
