@@ -73,7 +73,6 @@
       cancel_button: "Cancel",
       cancel_button_timed: (t) => `Cancel (${t})`,
       generate_new_number_button: "Generate New Number",
-      // NEW
       change_number_button: "Change Number",
       changing_number_button: "Changing...",
     },
@@ -100,7 +99,6 @@
       cancel_button: "Batal",
       cancel_button_timed: (t) => `Batal (${t})`,
       generate_new_number_button: "Jana Nombor Baru",
-      // NEW
       change_number_button: "Tukar Nombor",
       changing_number_button: "Menukar...",
     }
@@ -205,7 +203,7 @@
     if (phoneBtn) phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
     if (otpBtn)   otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
 
-    // start with both disabled; enable phone as soon as number appears
+    // start disabled; enable phone as soon as number appears
     setSingleCopyEnabled(phoneBtn, false);
     setSingleCopyEnabled(otpBtn, false);
   }
@@ -246,7 +244,7 @@
         <button id="retry-btn-${index}" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition hidden" data-translate="generate_new_number_button">${t('generate_new_number_button')}</button>
       </div>
 
-      <!-- Post-allocation: change number if stuck -->
+      <!-- Post-allocation: change number (visible immediately, disabled until 5 min) -->
       <div id="stuck-actions-${index}" class="mt-3 hidden">
         <button id="change-btn-${index}"
                 class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition"
@@ -332,32 +330,37 @@
     update();
   }
 
-  // If OTP hasn't arrived 5 minutes after allocation, allow "Change Number"
-  function showChangeNumberIfStuck(orderSn, index, state){
+  // Change Number control (visible immediately after allocation; disabled until 5 min)
+  function updateChangeNumberControl(orderSn, index, state){
     const wrap = document.getElementById(`stuck-actions-${index}`);
-    if (!wrap) return;
+    const btn  = document.getElementById(`change-btn-${index}`);
+    if (!wrap || !btn) return;
 
-    if (state.status === 'pending' && state.numberAllocatedAt && !state.otp) {
+    if (state.status === 'pending' && state.numberAllocatedAt) {
+      wrap.classList.remove('hidden');
       const elapsed = Date.now() - state.numberAllocatedAt;
-      if (elapsed >= OTP_STUCK_THRESHOLD_MS) {
-        wrap.classList.remove('hidden');
-        wireChangeNumber(orderSn, index, state);
-        return;
-      }
+      const ready   = elapsed >= OTP_STUCK_THRESHOLD_MS;
+      btn.disabled  = !ready;
+      btn.classList.toggle('opacity-50', !ready);
+      btn.classList.toggle('cursor-not-allowed', !ready);
+      if (btn.dataset.wired !== '1') wireChangeNumber(orderSn, index, state);
+    } else {
+      wrap.classList.add('hidden');
     }
-    wrap.classList.add('hidden');
   }
 
   function wireChangeNumber(orderSn, index, state){
     const btn = document.getElementById(`change-btn-${index}`);
     if (!btn || btn.dataset.wired === '1') return;
     btn.dataset.wired = '1';
+
     btn.addEventListener('click', async () => {
+      if (btn.disabled) return; // wait for 5 minutes
       try {
         btn.disabled = true;
         btn.textContent = t('changing_number_button');
 
-        // Best-effort cancel the current allocation (free the number)
+        // Cancel current allocation
         if (state.provider && state.providerOrderId) {
           await fetch(`${backendUrl}/cancel-order`, {
             method: "POST",
@@ -370,13 +373,13 @@
           }).catch(()=>{});
         }
 
-        // Clear local state for this item
+        // Reset local state
         state.phoneNumber = '';
         state.provider = '';
         state.providerOrderId = '';
         state.otp = '';
         state.status = 'idle';
-        state.requestStartTs = Date.now(); // re-enter pre-allocation stage (enables Cancel timer)
+        state.requestStartTs = Date.now(); // pre-allocation (enables Cancel timer)
         delete state.numberAllocatedAt;
         saveOrderState(orderSn, orderState);
 
@@ -393,14 +396,10 @@
           setBtnState(redeemBtn, 'redeeming');
         }
 
-        // Ask for a DIFFERENT number immediately (forceRetry=true)
-        const productKey =
-          state.productKey ||
-          mapProductKeyFromName(state.productName || '');
+        const productKey = state.productKey || mapProductKeyFromName(state.productName || '');
         await requestPhoneNumber(orderSn, productKey, index, state, redeemBtn, true);
 
       } finally {
-        btn.disabled = false;
         btn.textContent = t('change_number_button');
       }
     });
@@ -440,8 +439,7 @@
 
         document.getElementById(`phone-box-${index}`).textContent = data.phoneNumber || '—';
         // Enable phone copy immediately
-        const phoneBtn = document.getElementById(`copy-phone-${index}`);
-        setSingleCopyEnabled(phoneBtn, !!data.phoneNumber);
+        setSingleCopyEnabled(document.getElementById(`copy-phone-${index}`), !!data.phoneNumber);
 
         // Pre-allocation cancel becomes irrelevant now
         manageCancelButton(orderSn, index, state);
@@ -449,8 +447,8 @@
         setBtnState(btn, 'redeeming');
         const iv = startTimer(index, state.countdownEnd, timerEl);
 
-        // Show "Change Number" if stuck after threshold
-        showChangeNumberIfStuck(orderSn, index, state);
+        // "Change Number" visible immediately; disabled until 5 min
+        updateChangeNumberControl(orderSn, index, state);
 
         pollForOtp(orderSn, state, index, btn, iv);
         return;
@@ -477,8 +475,8 @@
     let pollIv;
 
     const poll = async () => {
-      // Check if we should show "Change Number"
-      showChangeNumberIfStuck(orderSn, index, state);
+      // Update "Change Number" enabled/disabled state every tick
+      updateChangeNumberControl(orderSn, index, state);
 
       const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
       if (remain <= 0) {
@@ -558,7 +556,7 @@
 
       // If we reloaded after allocation, maybe numberAllocatedAt missing; set fallback
       if (!state.numberAllocatedAt && state.phoneNumber) state.numberAllocatedAt = Date.now();
-      showChangeNumberIfStuck(orderSn, index, state);
+      updateChangeNumberControl(orderSn, index, state);
     } else if (state.requestStartTs) {
       // waiting for number (pre-allocation), restore cancel timer
       btn.classList.add('hidden');
@@ -684,9 +682,8 @@
           setCopyEnabled(index, false); // OTP still locked
           if (timerEl) timerEl.textContent = t('status_waiting_otp');
 
-          // Assume allocation happened now if we don't know exact time
           if (!st.numberAllocatedAt && st.phoneNumber) st.numberAllocatedAt = Date.now();
-          showChangeNumberIfStuck(orderSn, index, st);
+          updateChangeNumberControl(orderSn, index, st);
 
           if (!st._polling && st.provider && st.providerOrderId) {
             st._polling = true;
