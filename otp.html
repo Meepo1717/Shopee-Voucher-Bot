@@ -12,7 +12,7 @@
 
   <div class="absolute top-4 right-4">
     <button id="lang-switcher"
-            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+      class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
       Bahasa Melayu
     </button>
   </div>
@@ -23,25 +23,14 @@
       <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
     </div>
 
+    <div id="notice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"></div>
+
     <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
       <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
       <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
     </div>
 
     <div id="products-container" class="space-y-4"></div>
-  </div>
-
-  <!-- Notice Modal -->
-  <div id="notice-modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 z-50">
-    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-      <h3 class="text-lg font-semibold mb-2">Notice</h3>
-      <p id="notice-msg" class="text-gray-700 mb-6"></p>
-      <div class="text-right">
-        <button id="notice-ok" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-          OK
-        </button>
-      </div>
-    </div>
   </div>
 
 <script>
@@ -72,9 +61,10 @@
       copied: "Copied!",
       cancel_button: "Cancel",
       cancel_button_timed: (t) => `Cancel (${t})`,
+      change_number_button: "Change number",
+      change_number_button_timed: (t) => `Change number (${t})`,
       generate_new_number_button: "Generate New Number",
-      change_number_button: "Change Number",
-      changing_number_button: "Changing...",
+      view_only: "View Only",
     },
     ms: {
       title: "Penebusan Baucar",
@@ -98,9 +88,10 @@
       copied: "Disalin!",
       cancel_button: "Batal",
       cancel_button_timed: (t) => `Batal (${t})`,
+      change_number_button: "Tukar nombor",
+      change_number_button_timed: (t) => `Tukar nombor (${t})`,
       generate_new_number_button: "Jana Nombor Baru",
-      change_number_button: "Tukar Nombor",
-      changing_number_button: "Menukar...",
+      view_only: "Paparan Sahaja",
     }
   };
   let currentLang = 'en';
@@ -128,6 +119,10 @@
     const qs = new URLSearchParams(window.location.search);
     return qs.get('order_sn') || qs.get('orderId') || qs.get('ordersn') || '';
   }
+  function getViewParams(){
+    const qs = new URLSearchParams(window.location.search);
+    return { isViewOnly: qs.get('view') === '1', viewKey: qs.get('viewKey') || '' };
+  }
   function loadOrderState(orderSn){
     try { return JSON.parse(localStorage.getItem('hb_voucher_state_' + orderSn)) || {}; }
     catch { return {}; }
@@ -140,26 +135,8 @@
     return state[index];
   }
 
-  // Product mapping
-  function mapProductKeyFromName(name = "") {
-    const raw = (name || "").toLowerCase();
-    const letters = raw.replace(/[^a-z]/g, "");
-    const has = (re) => re.test(letters);
-    if (has(/k+.*f+.*c+/)) return "kfc";
-    if (letters.includes("zus")) return "zus_coffee";
-    if (letters.includes("tealive")) return "tealive";
-    if (letters.includes("chagee")) return "chagee";
-    if (letters.includes("marrybrown")) return "marrybrown";
-    if (letters.includes("kenangan")) return "kenangan_coffee";
-    if (letters.includes("luckin")) return "luckin_coffee";
-    if (letters.includes("gigi")) return "gigi_coffee";
-    if (letters.includes("shein")) return "shein";
-    return "kfc";
-  }
-
-  // Store for cancel timers (pre-allocation)
+  // Store for cancel timers to clear them later
   let cancelIntervals = {};
-  const OTP_STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
   // ---------- Copy helpers ----------
   async function copyText(text, btn){
@@ -177,37 +154,40 @@
       prompt("Copy this value:", text);
     }
   }
-  function setSingleCopyEnabled(btn, enabled){
-    if (!btn) return;
-    btn.disabled = !enabled;
-    btn.classList.toggle('opacity-50', !enabled);
-    btn.classList.toggle('cursor-not-allowed', !enabled);
-  }
-  function setCopyEnabled(index, enabled){
+
+  // NEW: control phone vs OTP copy separately
+  function setCopyState(index, opts){
     const phoneBtn = document.getElementById(`copy-phone-${index}`);
     const otpBtn   = document.getElementById(`copy-otp-${index}`);
-    [phoneBtn, otpBtn].forEach(btn=>{
-      if (!btn) return;
-      btn.disabled = !enabled;
-      btn.classList.toggle('opacity-50', !enabled);
-      btn.classList.toggle('cursor-not-allowed', !enabled);
-    });
+    if (phoneBtn && typeof opts.phone === 'boolean') {
+      phoneBtn.disabled = !opts.phone;
+      phoneBtn.classList.toggle('opacity-50', !opts.phone);
+      phoneBtn.classList.toggle('cursor-not-allowed', !opts.phone);
+    }
+    if (otpBtn && typeof opts.otp === 'boolean') {
+      otpBtn.disabled = !opts.otp;
+      otpBtn.classList.toggle('opacity-50', !opts.otp);
+      otpBtn.classList.toggle('cursor-not-allowed', !opts.otp);
+    }
   }
+
   function attachCopyHandlers(index){
     const phoneBtn = document.getElementById(`copy-phone-${index}`);
     const otpBtn   = document.getElementById(`copy-otp-${index}`);
     const phoneBox = document.getElementById(`phone-box-${index}`);
     const otpBox   = document.getElementById(`otp-box-${index}`);
 
-    if (phoneBtn) phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
-    if (otpBtn)   otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
-
-    // start disabled; enable phone as soon as number appears
-    setSingleCopyEnabled(phoneBtn, false);
-    setSingleCopyEnabled(otpBtn, false);
+    if (phoneBtn) {
+      phoneBtn.addEventListener('click', () => copyText(phoneBox.textContent.trim(), phoneBtn));
+    }
+    if (otpBtn) {
+      otpBtn.addEventListener('click', () => copyText(otpBox.textContent.trim(), otpBtn));
+    }
+    // Start: phone copy disabled (until number), OTP copy disabled (until OTP)
+    setCopyState(index, { phone:false, otp:false });
   }
 
-  // ---------- Fetch order + render (normal mode) ----------
+  // ---------- Fetchers ----------
   async function fetchOrderDetails(orderSn){
     const res = await fetch(`${backendUrl}/get-order-details`, {
       method: "POST",
@@ -216,10 +196,23 @@
     });
     const data = await res.json().catch(()=>({}));
     if (!res.ok || !data.success) throw new Error(data.message || 'Failed to fetch');
-    return data; // { success, items, viewKey, notices? }
+    return data;
   }
 
-  function injectRedemptionUI(container, index){
+  async function fetchRedemptionPartial(viewKey){
+    const res = await fetch(`${backendUrl}/get-redemption-partial`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewKey })
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || !data.success) throw new Error(data.message || 'Failed to load redemption');
+    return data;
+  }
+
+  // ---------- UI builders ----------
+  function injectRedemptionUI(container, index, opts={viewOnly:false}){
+    const viewOnly = !!opts.viewOnly;
     container.innerHTML = `
       <div class="mb-4 text-left">
         <label class="block text-sm font-medium text-gray-700" data-translate="phone_label">${t('phone_label')}</label>
@@ -237,18 +230,17 @@
       </div>
       <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
 
-      <!-- Pre-allocation cancel / retry -->
-      <div id="cancel-container-${index}" class="mt-4 text-center hidden">
-        <button id="cancel-btn-${index}" class="w-full bg-yellow-500 text-white font-semibold py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"></button>
-        <button id="retry-btn-${index}" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition hidden" data-translate="generate_new_number_button">${t('generate_new_number_button')}</button>
-      </div>
-
-      <!-- Post-allocation: change number (visible immediately, disabled until 5 min) -->
-      <div id="stuck-actions-${index}" class="mt-3 hidden">
-        <button id="change-btn-${index}"
-                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg transition"
-                data-translate="change_number_button">${t('change_number_button')}</button>
-      </div>
+      ${viewOnly ? '' : `
+      <div id="action-container-${index}" class="mt-4 text-center">
+        <div class="grid grid-cols-2 gap-2">
+          <button id="cancel-btn-${index}" class="w-full bg-yellow-500 text-white font-semibold py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed">
+            ${t('cancel_button_timed', '05:00')}
+          </button>
+          <button id="change-btn-${index}" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed">
+            ${t('change_number_button_timed', '05:00')}
+          </button>
+        </div>
+      </div>`}
     `;
     attachCopyHandlers(index);
   }
@@ -274,6 +266,7 @@
     btn.dataset.mode = mode;
   }
 
+  // Countdown on OTP waiting
   function startTimer(index, endTs, timerEl){
     let iv;
     function tick(){
@@ -288,39 +281,33 @@
     return iv;
   }
 
-  // Manage the 5-minute cancel button timer (pre-allocation)
-  function manageCancelButton(orderSn, index, state) {
-    const CANCEL_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-    const container = document.getElementById(`cancel-container-${index}`);
+  // Manage the 5-minute unlock for Cancel & Change
+  function manageActionButtons(orderSn, index, state) {
+    const UNLOCK_MS = 5 * 60 * 1000;
     const cancelBtn = document.getElementById(`cancel-btn-${index}`);
-    const retryBtn = document.getElementById(`retry-btn-${index}`);
-
-    if (!container || !cancelBtn || !retryBtn || !state.requestStartTs) return;
-
-    // If phone number was generated, process is no longer cancellable. Hide everything.
-    if (state.status === 'pending' || state.status === 'redeemed') {
-      if (cancelIntervals[index]) clearInterval(cancelIntervals[index]);
-      container.classList.add('hidden');
-      return;
-    }
-
-    container.classList.remove('hidden');
-    cancelBtn.classList.remove('hidden');
-    retryBtn.classList.add('hidden');
+    const changeBtn = document.getElementById(`change-btn-${index}`);
+    if (!cancelBtn || !changeBtn || !state.requestStartTs) return;
 
     const update = () => {
       const elapsed = Date.now() - state.requestStartTs;
-      const remaining = CANCEL_TIMEOUT - elapsed;
+      const remaining = UNLOCK_MS - elapsed;
 
       if (remaining > 0) {
-        cancelBtn.disabled = true;
         const minutes = Math.floor(remaining / 60000);
         const seconds = ('0' + Math.floor((remaining % 60000) / 1000)).slice(-2);
+        cancelBtn.disabled = true;
+        changeBtn.disabled = true;
         cancelBtn.textContent = t('cancel_button_timed', `${minutes}:${seconds}`);
+        changeBtn.textContent = t('change_number_button_timed', `${minutes}:${seconds}`);
       } else {
         cancelBtn.disabled = false;
+        changeBtn.disabled = false;
         cancelBtn.textContent = t('cancel_button');
-        if (cancelIntervals[index]) clearInterval(cancelIntervals[index]);
+        changeBtn.textContent = t('change_number_button');
+        if (cancelIntervals[index]) {
+          clearInterval(cancelIntervals[index]);
+          cancelIntervals[index] = null;
+        }
       }
     };
 
@@ -329,83 +316,20 @@
     update();
   }
 
-  // Change Number control (visible immediately after allocation; disabled until 5 min)
-  function updateChangeNumberControl(orderSn, index, state){
-    const wrap = document.getElementById(`stuck-actions-${index}`);
-    const btn  = document.getElementById(`change-btn-${index}`);
-    if (!wrap || !btn) return;
+  // ---------- Core flow ----------
+  const { isViewOnly, viewKey } = getViewParams();
+  const orderSn = getOrderSn();
+  const statusText = document.getElementById('status-text');
+  const orderSnDisplay = document.getElementById('order-sn-display');
+  const orderDetailsContainer = document.getElementById('order-details-container');
+  const productsContainer = document.getElementById('products-container');
+  const noticeEl = document.getElementById('notice');
 
-    if (state.status === 'pending' && state.numberAllocatedAt) {
-      wrap.classList.remove('hidden');
-      const elapsed = Date.now() - state.numberAllocatedAt;
-      const ready   = elapsed >= OTP_STUCK_THRESHOLD_MS;
-      btn.disabled  = !ready;
-      btn.classList.toggle('opacity-50', !ready);
-      btn.classList.toggle('cursor-not-allowed', !ready);
-      if (btn.dataset.wired !== '1') wireChangeNumber(orderSn, index, state);
-    } else {
-      wrap.classList.add('hidden');
-    }
-  }
+  let orderState = orderSn ? loadOrderState(orderSn) : {};
 
-  function wireChangeNumber(orderSn, index, state){
-    const btn = document.getElementById(`change-btn-${index}`);
-    if (!btn || btn.dataset.wired === '1') return;
-    btn.dataset.wired = '1';
-
-    btn.addEventListener('click', async () => {
-      if (btn.disabled) return; // wait for 5 minutes
-      try {
-        btn.disabled = true;
-        btn.textContent = t('changing_number_button');
-
-        // Cancel current allocation
-        if (state.provider && state.providerOrderId) {
-          await fetch(`${backendUrl}/cancel-order`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              shopeeId: orderSn,
-              provider: state.provider,
-              providerOrderId: state.providerOrderId
-            })
-          }).catch(()=>{});
-        }
-
-        // Reset local state
-        state.phoneNumber = '';
-        state.provider = '';
-        state.providerOrderId = '';
-        state.otp = '';
-        state.status = 'idle';
-        state.requestStartTs = Date.now(); // pre-allocation (enables Cancel timer)
-        delete state.numberAllocatedAt;
-        saveOrderState(orderSn, orderState);
-
-        // Reset UI
-        document.getElementById(`phone-box-${index}`).textContent = '';
-        document.getElementById(`otp-box-${index}`).textContent = '';
-        document.getElementById(`timer-${index}`).textContent = t('status_waiting_otp');
-        document.getElementById(`stuck-actions-${index}`).classList.add('hidden');
-
-        const redeemBtn = document.getElementById(`redeem-btn-${index}`);
-        if (redeemBtn) {
-          redeemBtn.classList.add('hidden');
-          manageCancelButton(orderSn, index, state);
-          setBtnState(redeemBtn, 'redeeming');
-        }
-
-        const productKey = state.productKey || mapProductKeyFromName(state.productName || '');
-        await requestPhoneNumber(orderSn, productKey, index, state, redeemBtn, true);
-
-      } finally {
-        btn.textContent = t('change_number_button');
-      }
-    });
-  }
-
-  async function requestPhoneNumber(orderSn, productKey, index, state, btn, forceRetry = false){
+  async function requestPhoneNumber(orderSn, productKey, index, state, btn, isRetry=false){
     const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
 
     let attempt = 0;
@@ -417,49 +341,32 @@
         const res = await fetch(`${backendUrl}/get-phone`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            shopeeId: orderSn,
-            product: productKey,
-            productIndex: index,
-            isRetry: forceRetry || attempt > 1
-          })
+          body: JSON.stringify({ shopeeId: orderSn, product: productKey, productIndex: index, isRetry })
         });
         const data = await res.json().catch(()=>({}));
-
-        // Price-cap signal from server → show local, per-card message and stop
-        if (!res.ok && (data.code === 'NO_CHEAP_NUMBERS' || /NO_CHEAP_NUMBERS|PRICE_TOO_HIGH/i.test(data.message || ''))) {
-          phoneBox.textContent = "no numbers available currently. Please try again later";
+        if (!res.ok) {
+          // if price-cap or per-product error, print it inside this phone box only
+          phoneBox.textContent = data.message || t('error_get_number');
           setBtnState(btn, 'idle');
           state.status = 'idle';
           saveOrderState(orderSn, orderState);
-          manageCancelButton(orderSn, index, state);
-          return; // do not retry; only this card is affected
+          return;
         }
-
-        if (!res.ok) throw new Error(data.message || 'provider error');
 
         // SUCCESS
         state.phoneNumber = data.phoneNumber;
         state.provider = data.provider;
         state.providerOrderId = data.providerOrderId;
-        state.countdownEnd = Date.now() + 600000;
+        state.countdownEnd = Date.now() + 600000; // 10 minutes to wait OTP
         state.status = 'pending';
-        state.numberAllocatedAt = Date.now();
         saveOrderState(orderSn, orderState);
 
-        document.getElementById(`phone-box-${index}`).textContent = data.phoneNumber || '—';
-        // Enable phone copy immediately
-        setSingleCopyEnabled(document.getElementById(`copy-phone-${index}`), !!data.phoneNumber);
-
-        // Pre-allocation cancel becomes irrelevant now
-        manageCancelButton(orderSn, index, state);
+        phoneBox.textContent = data.phoneNumber || '—';
+        // Allow copying phone immediately
+        setCopyState(index, { phone:true });
 
         setBtnState(btn, 'redeeming');
         const iv = startTimer(index, state.countdownEnd, timerEl);
-
-        // "Change Number" visible immediately; disabled until 5 min
-        updateChangeNumberControl(orderSn, index, state);
-
         pollForOtp(orderSn, state, index, btn, iv);
         return;
       } catch (e) {
@@ -473,7 +380,6 @@
         setBtnState(btn, 'idle');
         state.status = 'idle';
         saveOrderState(orderSn, orderState);
-        manageCancelButton(orderSn, index, state);
         return;
       }
     }
@@ -485,9 +391,6 @@
     let pollIv;
 
     const poll = async () => {
-      // Update "Change Number" enable state every tick
-      updateChangeNumberControl(orderSn, index, state);
-
       const remain = state.countdownEnd ? state.countdownEnd - Date.now() : 0;
       if (remain <= 0) {
         if (pollIv) clearInterval(pollIv);
@@ -496,7 +399,7 @@
         setBtnState(btn, 'idle');
         state.status = 'idle';
         saveOrderState(orderSn, orderState);
-        setCopyEnabled(index, false);
+        // OTP copy stays disabled
         return;
       }
       try {
@@ -520,9 +423,10 @@
           if (timerIv) clearInterval(timerIv);
           timerEl.textContent = `✅ ${t('status_received')}`;
           setBtnState(btn, 'redeemed');
-          setCopyEnabled(index, true);
+          // Allow copying OTP now
+          setCopyState(index, { otp:true });
 
-          // notify backend (per-item)
+          // notify backend: include productIndex
           fetch(`${backendUrl}/confirm-redemption`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -539,258 +443,96 @@
     const phoneBox = document.getElementById(`phone-box-${index}`);
     const otpBox   = document.getElementById(`otp-box-${index}`);
     const timerEl  = document.getElementById(`timer-${index}`);
-    const phoneBtn = document.getElementById(`copy-phone-${index}`);
+    const actionContainer = document.getElementById(`action-container-${index}`);
 
     if (state.phoneNumber) {
       phoneBox.textContent = state.phoneNumber;
-      setSingleCopyEnabled(phoneBtn, true); // enable phone copy if present
+      // enable phone copy if we already had a number
+      setCopyState(index, { phone:true });
     }
 
     if (state.status === 'redeemed' && state.otp) {
       otpBox.textContent = state.otp;
       setBtnState(btn, 'redeemed');
       timerEl.textContent = `✅ ${t('status_received')}`;
-      setCopyEnabled(index, true);
-      document.getElementById(`cancel-container-${index}`).classList.add('hidden');
-      document.getElementById(`stuck-actions-${index}`).classList.add('hidden');
+      setCopyState(index, { phone:true, otp:true });
+      if (actionContainer) actionContainer.classList.add('hidden');
       return;
     }
 
     if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
       setBtnState(btn, 'redeeming');
       const iv = startTimer(index, state.countdownEnd, timerEl);
-      setSingleCopyEnabled(phoneBtn, !!state.phoneNumber);
-      setCopyEnabled(index, false);
+      setCopyState(index, { phone: !!state.phoneNumber, otp:false });
       pollForOtp(orderSn, state, index, btn, iv);
-      document.getElementById(`cancel-container-${index}`).classList.add('hidden');
-
-      if (!state.numberAllocatedAt && state.phoneNumber) state.numberAllocatedAt = Date.now();
-      updateChangeNumberControl(orderSn, index, state);
+      // show action container and manage unlocks
+      if (actionContainer) {
+        actionContainer.classList.remove('hidden');
+        manageActionButtons(orderSn, index, state);
+      }
     } else if (state.requestStartTs) {
-      // waiting for number (pre-allocation), restore cancel timer
-      btn.classList.add('hidden');
-      manageCancelButton(orderSn, index, state);
+      // waiting for a number to be allocated; keep actions visible but disabled by countdown
+      if (actionContainer) {
+        actionContainer.classList.remove('hidden');
+        manageActionButtons(orderSn, index, state);
+      }
+      btn.classList.add('hidden'); // hide redeem while pending request
     } else {
       setBtnState(btn, 'idle');
-      setCopyEnabled(index, false);
+      setCopyState(index, { phone:false, otp:false });
     }
-  }
-
-  // === View-only rendering by permanent viewKey (SHOW FULL VALUES) ===
-  async function renderViewOnlyByKey(viewKey) {
-    const statusText = document.getElementById('status-text');
-    const orderSnDisplay = document.getElementById('order-sn-display');
-    const orderDetailsContainer = document.getElementById('order-details-container');
-    const productsContainer = document.getElementById('products-container');
-
-    statusText.textContent = (currentLang === 'ms')
-      ? "Memuatkan butiran penebusan (lihat sahaja)…"
-      : "Loading redemption details (view-only)…";
-
-    const res = await fetch(`${backendUrl}/get-redemption`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ viewKey })
-    });
-    const data = await res.json().catch(()=>({}));
-
-    if (!res.ok || !data.success) {
-      statusText.textContent = (currentLang === 'ms')
-        ? `Gagal memuatkan (sebab: ${data.message || 'ralat'})`
-        : `Failed to load (reason: ${data.message || 'error'})`;
-      return;
-    }
-
-    const sn = data.order_sn;
-    orderSnDisplay.textContent = sn || '(unknown)';
-    orderDetailsContainer.classList.remove('hidden');
-
-    statusText.textContent = (currentLang === 'ms')
-      ? "Telah ditebus. Mod lihat sahaja."
-      : "Redeemed. View-only mode.";
-
-    productsContainer.innerHTML = '';
-    (data.items || []).forEach((item, index) => {
-      const card = document.createElement('div');
-      card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
-      card.innerHTML = `
-        <div class="flex justify-between items-center">
-          <div>
-            <h3 class="font-bold text-lg">${item.name || 'Item'}</h3>
-            ${item.redeemedAt ? `<div class="text-xs text-gray-500 mt-1">Redeemed at: ${new Date(item.redeemedAt).toLocaleString()}</div>` : ''}
-          </div>
-        </div>
-        <div id="details-container-${index}" class="mt-4"></div>
-      `;
-      productsContainer.appendChild(card);
-      injectRedemptionUI(document.getElementById(`details-container-${index}`), index);
-
-      const phoneBox = document.getElementById(`phone-box-${index}`);
-      const otpBox   = document.getElementById(`otp-box-${index}`);
-      const timerEl  = document.getElementById(`timer-${index}`);
-      const cancelWrap = document.getElementById(`cancel-container-${index}`);
-
-      // FULL VALUES in view-only
-      phoneBox.textContent = item.phoneNumber || '—';
-      otpBox.textContent   = item.otp || '—';
-
-      timerEl.textContent = (currentLang === 'ms') ? 'Mod lihat sahaja' : 'View-only mode';
-
-      // Allow copying (full values)
-      setCopyEnabled(index, !!(item.phoneNumber || item.otp));
-      if (cancelWrap) cancelWrap.classList.add('hidden');
-      const redeemBtn = document.getElementById(`redeem-btn-${index}`);
-      if (redeemBtn) {
-        redeemBtn.disabled = true;
-        redeemBtn.classList.add('hidden');
-      }
-      document.getElementById(`stuck-actions-${index}`).classList.add('hidden');
-    });
-  }
-
-  // === Cross-device partial resume ===
-  async function mergePartialFromServer(viewKey, itemsCount){
-    if (!viewKey) return;
-    try {
-      const res = await fetch(`${backendUrl}/get-redemption-partial`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ viewKey })
-      });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || !data.success) return;
-
-      (data.items || []).forEach((serverItem, index) => {
-        const phoneBox = document.getElementById(`phone-box-${index}`);
-        const otpBox   = document.getElementById(`otp-box-${index}`);
-        const timerEl  = document.getElementById(`timer-${index}`);
-        const redeemBtn= document.getElementById(`redeem-btn-${index}`);
-        if (!phoneBox || !otpBox) return;
-
-        const st = ensureEntry(orderState, index);
-
-        // Merge from server
-        st.phoneNumber     = serverItem.phoneNumber || st.phoneNumber;
-        st.otp             = serverItem.otp || st.otp;
-        st.provider        = serverItem.provider || st.provider;
-        st.providerOrderId = serverItem.providerOrderId || st.providerOrderId;
-        st.status          = serverItem.status || st.status;
-
-        // Render based on status
-        if (st.status === 'redeemed') {
-          phoneBox.textContent = st.phoneNumber || '—';
-          otpBox.textContent   = st.otp || '—';
-          setCopyEnabled(index, !!(st.phoneNumber || st.otp));
-          if (timerEl) timerEl.textContent = '✅ ' + t('status_received');
-          if (redeemBtn) { setBtnState(redeemBtn, 'redeemed'); redeemBtn.classList.add('hidden'); }
-          document.getElementById(`stuck-actions-${index}`).classList.add('hidden');
-        } else if (st.status === 'pending') {
-          // Show phone, enable phone copy, resume OTP polling cross-device
-          phoneBox.textContent = st.phoneNumber || '—';
-          setSingleCopyEnabled(document.getElementById(`copy-phone-${index}`), !!st.phoneNumber);
-          setCopyEnabled(index, false); // OTP still locked
-          if (timerEl) timerEl.textContent = t('status_waiting_otp');
-
-          if (!st.numberAllocatedAt && st.phoneNumber) st.numberAllocatedAt = Date.now();
-          updateChangeNumberControl(orderSn, index, st);
-
-          if (!st._polling && st.provider && st.providerOrderId) {
-            st._polling = true;
-            resumePollingWithoutCountdown(orderSn, st, index, redeemBtn, timerEl);
-          }
-
-          if (redeemBtn) setBtnState(redeemBtn, 'redeeming');
-        } else {
-          // idle: nothing to merge
-        }
-      });
-
-      saveOrderState(orderSn, orderState);
-    } catch (_) {}
-  }
-
-  function resumePollingWithoutCountdown(orderSn, state, index, btn, timerEl){
-    let pollIv;
-    const otpBox = document.getElementById(`otp-box-${index}`);
-    const poll = async () => {
-      try {
-        const res = await fetch(`${backendUrl}/check-otp`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            shopeeId: orderSn,
-            provider: state.provider,
-            providerOrderId: state.providerOrderId
-          })
-        });
-        const data = await res.json().catch(()=>({}));
-        if (res.ok && data.otp) {
-          otpBox.textContent = data.otp;
-          state.otp = data.otp;
-          state.status = 'redeemed';
-          saveOrderState(orderSn, orderState);
-
-          clearInterval(pollIv);
-          const timerElLocal = document.getElementById(`timer-${index}`);
-          if (timerElLocal) timerElLocal.textContent = `✅ ${t('status_received')}`;
-          if (btn) setBtnState(btn, 'redeemed');
-          setCopyEnabled(index, true);
-
-          fetch(`${backendUrl}/confirm-redemption`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderSn, productIndex: index })
-          }).catch(()=>{});
-        }
-      } catch {}
-    };
-    pollIv = setInterval(poll, 5000);
-    poll();
-  }
-
-  // ---------- Notice popup helpers ----------
-  function showPopup(message){
-    const modal = document.getElementById('notice-modal');
-    const msgEl = document.getElementById('notice-msg');
-    msgEl.textContent = message || '';
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
-  function wirePopupClose(){
-    const ok = document.getElementById('notice-ok');
-    if (ok) ok.addEventListener('click', () => {
-      const modal = document.getElementById('notice-modal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    });
   }
 
   // ---------- Render flow ----------
-  const qs = new URLSearchParams(window.location.search);
-  const orderSn = getOrderSn();
-  const viewKey = qs.get('viewKey'); // for view-only mode
-  const statusText = document.getElementById('status-text');
-  const orderSnDisplay = document.getElementById('order-sn-display');
-  const orderDetailsContainer = document.getElementById('order-details-container');
-  const productsContainer = document.getElementById('products-container');
-
-  let orderState = loadOrderState(orderSn);
-
   async function boot(){
     setLanguage('en');
     document.getElementById('lang-switcher').addEventListener('click', () => {
       setLanguage(currentLang === 'en' ? 'ms' : 'en');
     });
 
-    // wire modal close
-    wirePopupClose();
+    // VIEW-ONLY mode via viewKey
+    if (isViewOnly && viewKey) {
+      try {
+        const data = await fetchRedemptionPartial(viewKey);
+        statusText.textContent = t('status_ready');
 
-    if (viewKey) {
-      // Permanent, cross-device view-only path
-      await renderViewOnlyByKey(viewKey);
-      return;
+        orderDetailsContainer.classList.remove('hidden');
+        orderSnDisplay.textContent = data.order_sn || '(unknown)';
+
+        productsContainer.innerHTML = '';
+        (data.items || []).forEach((it, index) => {
+          const card = document.createElement('div');
+          card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
+          card.innerHTML = `
+            <div class="flex justify-between items-center">
+              <div><h3 class="font-bold text-lg">${it.name || 'Item'}</h3></div>
+              <span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">${t('view_only')}</span>
+            </div>
+            <div id="details-container-${index}" class="mt-4"></div>
+          `;
+          productsContainer.appendChild(card);
+
+          // Build a read-only details area but still allow copying both fields
+          injectRedemptionUI(document.getElementById(`details-container-${index}`), index, { viewOnly:true });
+          const phoneBox = document.getElementById(`phone-box-${index}`);
+          const otpBox   = document.getElementById(`otp-box-${index}`);
+          phoneBox.textContent = it.phoneNumber || '—';
+          otpBox.textContent   = it.otp || '—';
+
+          // Enable both copy buttons immediately in view mode
+          setCopyState(index, { phone: !!it.phoneNumber, otp: !!it.otp });
+
+          // Hide action container entirely in view-only
+          const actionContainer = document.getElementById(`action-container-${index}`);
+          if (actionContainer) actionContainer.classList.add('hidden');
+        });
+      } catch (e) {
+        statusText.textContent = `${t('status_failed_fetch')} (${e.message})`;
+      }
+      return; // stop normal flow
     }
 
+    // Normal redemption flow
     if (!orderSn) {
       statusText.textContent = "Error: No order_sn provided.";
       return;
@@ -800,21 +542,24 @@
     orderDetailsContainer.classList.remove('hidden');
 
     try {
-      // Ensure items skeleton + get permanent viewKey early
-      const details = await fetchOrderDetails(orderSn); // { success, items, viewKey, notices? }
+      const data = await fetchOrderDetails(orderSn);
       statusText.textContent = t('status_ready');
 
-      // Show Coffee Bean notice if present
-      if (details.notices && details.notices.coffeeBean) {
-        showPopup(details.notices.coffeeBean);
+      // Coffee Bean or other notices
+      if (data.notices && data.notices.coffeeBean) {
+        noticeEl.textContent = data.notices.coffeeBean;
+        noticeEl.classList.remove('hidden');
+      } else {
+        noticeEl.classList.add('hidden');
       }
 
       const items = [];
-      (details.items || []).forEach(it => {
+      (data.items || []).forEach(it => {
         const qty = Number(it.quantity || 1) || 1;
         for (let i=0;i<qty;i++){
           items.push({
             name: it.name || 'Item',
+            // productKey is client-side hint only; server will infer from name as well
             productKey: mapProductKeyFromName(it.name || '')
           });
         }
@@ -826,46 +571,102 @@
         card.className = "border border-gray-200 rounded-lg p-4 shadow-sm";
         card.innerHTML = `
           <div class="flex justify-between items-center">
-            <div>
-              <h3 class="font-bold text-lg">${item.name}</h3>
-            </div>
+            <div><h3 class="font-bold text-lg">${item.name}</h3></div>
             <button id="redeem-btn-${index}" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0" data-translate="redeem_button">${t('redeem_button')}</button>
           </div>
           <div id="details-container-${index}" class="mt-4"></div>
         `;
         productsContainer.appendChild(card);
-        injectRedemptionUI(document.getElementById(`details-container-${index}`), index);
+        injectRedemptionUI(document.getElementById(`details-container-${index}`), index, { viewOnly:false });
 
         const redeemBtn = document.getElementById(`redeem-btn-${index}`);
         const cancelBtn = document.getElementById(`cancel-btn-${index}`);
-        const retryBtn = document.getElementById(`retry-btn-${index}`);
+        const changeBtn = document.getElementById(`change-btn-${index}`);
 
-        const startRedemptionProcess = async () => {
+        const startRedemptionProcess = async (isRetry=false) => {
           const st = ensureEntry(orderState, index);
           st.productName = item.name;
-          st.productKey  = item.productKey; // for change-number flow
-          st.requestStartTs = Date.now();   // Start 5-min pre-allocation timer
+          st.requestStartTs = Date.now(); // start 5-min unlock
           saveOrderState(orderSn, orderState);
 
-          redeemBtn.classList.add('hidden');
-          manageCancelButton(orderSn, index, st);
+          // show actions and run countdown unlock
+          const actionContainer = document.getElementById(`action-container-${index}`);
+          if (actionContainer) actionContainer.classList.remove('hidden');
 
-          setBtnState(redeemBtn, 'redeeming');
-          await requestPhoneNumber(orderSn, item.productKey, index, st, redeemBtn);
+          manageActionButtons(orderSn, index, st);
+          redeemBtn.classList.add('hidden');
+          setBtnState(redeemBtn, 'redeeming'); // visually mark
+
+          await requestPhoneNumber(orderSn, item.productKey, index, st, redeemBtn, isRetry);
         };
 
-        redeemBtn.addEventListener('click', startRedemptionProcess);
-        retryBtn.addEventListener('click', startRedemptionProcess);
+        redeemBtn.addEventListener('click', () => startRedemptionProcess(false));
 
-        cancelBtn.addEventListener('click', () => {
-          if (cancelBtn.disabled) return;
+        // Change number: only active after 5 minutes (button is visible but disabled until then)
+        changeBtn.addEventListener('click', async () => {
+          if (changeBtn.disabled) return;
           const st = ensureEntry(orderState, index);
-          delete st.requestStartTs; // Reset timer state
+          // cancel current allocation (if any), then retry
+          if (st.provider && st.providerOrderId) {
+            try {
+              await fetch(`${backendUrl}/cancel-order`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  shopeeId: orderSn,
+                  provider: st.provider,
+                  providerOrderId: st.providerOrderId
+                })
+              });
+            } catch {}
+          }
+          // reset state for this item
+          delete st.phoneNumber; delete st.otp; delete st.provider; delete st.providerOrderId;
+          st.status = 'idle';
+          st.requestStartTs = Date.now();
           saveOrderState(orderSn, orderState);
 
-          cancelBtn.classList.add('hidden');
-          retryBtn.classList.remove('hidden');
+          // clear UI text
           document.getElementById(`phone-box-${index}`).textContent = '';
+          document.getElementById(`otp-box-${index}`).textContent = '';
+          setCopyState(index, { phone:false, otp:false });
+
+          manageActionButtons(orderSn, index, st);
+          await startRedemptionProcess(true);
+        });
+
+        // Cancel: enabled after 5 minutes
+        cancelBtn.addEventListener('click', async () => {
+          if (cancelBtn.disabled) return;
+          const st = ensureEntry(orderState, index);
+          if (st.provider && st.providerOrderId) {
+            try {
+              await fetch(`${backendUrl}/cancel-order`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  shopeeId: orderSn,
+                  provider: st.provider,
+                  providerOrderId: st.providerOrderId
+                })
+              });
+            } catch {}
+          }
+          // Reset state & UI; user may press Redeem again later
+          delete st.requestStartTs;
+          delete st.phoneNumber; delete st.otp; delete st.provider; delete st.providerOrderId;
+          st.status = 'idle';
+          saveOrderState(orderSn, orderState);
+
+          document.getElementById(`phone-box-${index}`).textContent = '';
+          document.getElementById(`otp-box-${index}`).textContent = '';
+          setCopyState(index, { phone:false, otp:false });
+
+          // hide action buttons, show Redeem
+          const actionContainer = document.getElementById(`action-container-${index}`);
+          if (actionContainer) actionContainer.classList.add('hidden');
+          redeemBtn.classList.remove('hidden');
+          setBtnState(redeemBtn, 'idle');
         });
 
         // Restore UI from localStorage
@@ -873,12 +674,26 @@
         restoreVoucherUI(orderSn, index, st, redeemBtn);
       });
 
-      // Cross-device partial resume
-      await mergePartialFromServer(details.viewKey, items.length);
-
     } catch (e) {
       statusText.textContent = `${t('status_failed_fetch')} (${e.message})`;
     }
+  }
+
+  // Robust mapping (client hint — server also infers)
+  function mapProductKeyFromName(name = "") {
+    const raw = (name || "").toLowerCase();
+    const letters = raw.replace(/[^a-z]/g, "");
+    const has = (re) => re.test(letters);
+    if (has(/k+.*f+.*c+/)) return "kfc";
+    if (letters.includes("zus")) return "zus_coffee";
+    if (letters.includes("tealive")) return "tealive";
+    if (letters.includes("chagee")) return "chagee";
+    if (letters.includes("marrybrown")) return "marrybrown";
+    if (letters.includes("kenangan")) return "kenangan_coffee";
+    if (letters.includes("luckin")) return "luckin_coffee";
+    if (letters.includes("gigi")) return "gigi_coffee";
+    if (letters.includes("shein")) return "shein";
+    return "kfc";
   }
 
   window.addEventListener('load', boot);
