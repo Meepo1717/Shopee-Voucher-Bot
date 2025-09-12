@@ -3,46 +3,25 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title data-translate="title">Verify Order - HavicBot</title>
+  <title>Verify Order - HavicBot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>body{font-family:'Inter',sans-serif}</style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-  <!-- Language switcher -->
-  <div class="absolute top-4 right-4">
-    <button id="lang-switcher"
-      class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200"
-      data-translate="lang_button">Bahasa Melayu</button>
-  </div>
-
   <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
-    <h1 class="text-2xl font-bold mb-4" style="color:#EE4D2D;" data-translate="heading">Order Verification</h1>
+    <h1 class="text-2xl font-bold mb-4" style="color:#EE4D2D;">Order Verification</h1>
 
-    <label class="block text-sm font-medium text-gray-700 mb-2" data-translate="enter_label">Enter Order ID</label>
-    <input id="order-sn"
-           class="w-full border rounded-lg px-3 py-3 outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="e.g. 250903HV1WVBFA"
-           data-translate-placeholder="placeholder_sn"/>
+    <label class="block text-sm font-medium text-gray-700 mb-2">Enter Order SN</label>
+    <input id="order-sn" class="w-full border rounded-lg px-3 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+           placeholder="e.g. 250903HV1WVBFA"/>
 
     <button id="verify-btn"
-            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition"
-            data-translate="verify_button">
+            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition">
       Verify & Continue
     </button>
 
-    <!-- Instructions panel -->
-    <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-      <p class="font-semibold mb-2" style="color:#EE4D2D;" data-translate="inst_title">Instructions</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li><span data-translate="inst1">Go to My Purchases to get your Order ID. Copy the ID and paste in the box above.</span></li>
-        <li><span data-translate="inst2">Log out from the app, press “Sign-Up/Register/Create New Account”.</span></li>
-        <li><span data-translate="inst3">Use the number given.</span></li>
-        <li><span data-translate="inst4">Claim your OTP within 10 minutes.</span></li>
-      </ul>
-    </div>
-
-    <div id="note" class="text-xs text-gray-500 mt-3" data-translate="note_paid">
+    <div id="note" class="text-xs text-gray-500 mt-3">
       We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.
     </div>
 
@@ -56,80 +35,6 @@
     var btn   = document.getElementById('verify-btn');
     var statusEl = document.getElementById('status');
 
-    // ---------- i18n ----------
-    const translations = {
-      en: {
-        title: "Verify Order - HavicBot",
-        heading: "Order Verification",
-        enter_label: "Enter Order ID",
-        placeholder_sn: "e.g. 250903HV1WVBFA",
-        verify_button: "Verify & Continue",
-        note_paid: "We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.",
-        inst_title: "Instructions",
-        inst1: "Go to My Purchases to get your Order ID. Copy the ID and paste in the box above.",
-        inst2: "Log out from the app, press “Sign-Up/Register/Create New Account”.",
-        inst3: "Use the number given.",
-        inst4: "Claim your OTP within 10 minutes.",
-        lang_button: "Bahasa Melayu",
-
-        // Status strings
-        status_need_sn: "Please enter a valid Order ID.",
-        status_verifying: "Verifying order…",
-        status_verified: "✅ Order verified. Redirecting…",
-        status_generic_error: "Order is not paid / invalid.",
-        status_network_error: "Could not verify the order (network/server error)."
-      },
-      ms: {
-        title: "Sahkan Pesanan - HavicBot",
-        heading: "Pengesahan Pesanan",
-        enter_label: "Masukkan Order ID",
-        placeholder_sn: "cth. 250903HV1WVBFA",
-        verify_button: "Sahkan & Teruskan",
-        note_paid: "Kami hanya akan meneruskan jika pesanan <b>telah dibayar</b>. Pesanan belum bayar disekat di pelayan.",
-        inst_title: "Arahan",
-        inst1: "Pergi ke Pembelian Saya untuk mendapatkan ID Pesanan. Salin ID tersebut dan tampal di kotak di atas.",
-        inst2: "Log keluar daripada aplikasi, tekan “Daftar/Sign-Up/Cipta Akaun Baharu”.",
-        inst3: "Gunakan nombor yang diberikan.",
-        inst4: "Tebus OTP anda dalam masa 10 minit.",
-        lang_button: "English",
-
-        status_need_sn: "Sila masukkan Order ID yang sah.",
-        status_verifying: "Mengesahkan pesanan…",
-        status_verified: "✅ Pesanan disahkan. Mengalih…",
-        status_generic_error: "Pesanan belum dibayar / tidak sah.",
-        status_network_error: "Tidak dapat mengesahkan pesanan (ralat rangkaian/pelayan)."
-      }
-    };
-    let currentLang = 'en';
-
-    function setLanguage(lang){
-      currentLang = lang;
-
-      // Elements with inner text
-      document.querySelectorAll('[data-translate]').forEach(el => {
-        const key = el.getAttribute('data-translate');
-        const val = translations[lang][key];
-        if (typeof val === 'string') el.innerHTML = val; // allow <b> in note
-      });
-
-      // Placeholder fields
-      document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
-        const key = el.getAttribute('data-translate-placeholder');
-        const val = translations[lang][key];
-        if (typeof val === 'string') el.placeholder = val;
-      });
-
-      // Button label
-      const sw = document.getElementById('lang-switcher');
-      if (sw) sw.textContent = translations[lang].lang_button;
-
-      // Also update <title>
-      document.title = translations[lang].title;
-    }
-
-    function t(key){ return (translations[currentLang] && translations[currentLang][key]) || key; }
-
-    // ---------- UI helpers ----------
     function showStatus(msg, type){
       statusEl.className = "mt-4 px-3 py-3 rounded-lg " + (type==='ok'
         ? "bg-green-50 text-green-700 border border-green-200"
@@ -149,37 +54,48 @@
       });
       const json = await res.json().catch(() => ({}));
 
-      if (!res.ok || json.success !== true) {
-        showStatus(json.message || t('status_generic_error'), "err");
+      if (!res.ok) {
+        showStatus(json.message || "Order is not paid / invalid.", "err");
         return;
       }
-      const finalSn = json.order_sn || sn;
-      showStatus(t('status_verified'), "ok");
-      const url = new URL('otp.html', window.location.href);
-      url.searchParams.set('order_sn', finalSn);
-      window.location.href = url.toString();
+
+      // (A) Normal flow: verified and payable
+      if (json.success === true) {
+        var finalSn = json.order_sn || sn;
+        showStatus("✅ Order verified. Redirecting…", "ok");
+        var url = new URL('otp.html', window.location.href);
+        url.searchParams.set('order_sn', finalSn);
+        window.location.href = url.toString();
+        return;
+      }
+
+      // (B) Already claimed: still open OTP page in view mode with viewKey
+      if (json.code === 'CLAIMED') {
+        showStatus("This order was already claimed. Opening your vouchers…", "warn");
+        var url2 = new URL('otp.html', window.location.href);
+        url2.searchParams.set('order_sn', sn);
+        if (json.viewKey) url2.searchParams.set('viewKey', json.viewKey);
+        url2.searchParams.set('mode', 'view');
+        window.location.href = url2.toString();
+        return;
+      }
+
+      // (C) Anything else
+      showStatus(json.message || "Order is not paid / invalid.", "err");
     }
 
     function onClick(){
       var sn = (input.value || "").trim();
-      if(!sn){ showStatus(t('status_need_sn'), "err"); return; }
+      if(!sn){ showStatus("Please enter a valid Order SN.", "err"); return; }
       setDisabled(btn, true);
-      showStatus(t('status_verifying'), "warn");
+      showStatus("Verifying order…", "warn");
       verifyAndGo(sn).catch(function(){
-        showStatus(t('status_network_error'), "err");
+        showStatus("Could not verify the order (network/server error).", "err");
       }).finally(function(){ setDisabled(btn, false); });
     }
 
-    // Events
     btn.addEventListener('click', onClick);
     input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ onClick(); } });
-
-    document.getElementById('lang-switcher').addEventListener('click', () => {
-      setLanguage(currentLang === 'en' ? 'ms' : 'en');
-    });
-
-    // boot
-    setLanguage('en');
   })();
   </script>
 </body>
