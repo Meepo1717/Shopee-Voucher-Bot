@@ -134,10 +134,23 @@
       });
       const json = await res.json().catch(() => ({}));
 
+      // NEW: already claimed → redirect to read-only view
+      if (res.ok && json && json.code === 'CLAIMED') {
+        const finalSn = json.order_sn || sn;
+        const viewKey = json.viewKey;
+        showStatus("ℹ️ This order was already claimed. Showing your redemption…", "warn");
+        var url = new URL('otp.html', window.location.href);
+        url.searchParams.set('order_sn', finalSn);
+        if (viewKey) url.searchParams.set('viewKey', viewKey);
+        window.location.href = url.toString();
+        return;
+      }
+
       if (!res.ok || json.success !== true) {
         showStatus(json.message || "Order is not paid / invalid.", "err");
         return;
       }
+
       var finalSn = json.order_sn || sn;
       showStatus("✅ Order verified. Redirecting…", "ok");
       var url = new URL('otp.html', window.location.href);
