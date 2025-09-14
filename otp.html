@@ -1,194 +1,380 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Voucher Redemption - HavicBot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-  </style>
+  <style>body{font-family:'Inter',sans-serif}</style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-  <div id="main" class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-8 text-center">
-    <h1 class="text-2xl font-bold mb-6" style="color:#EE4D2D;">Voucher Redemption</h1>
-    <div id="loading" class="text-blue-600 font-medium">Fetching your order details...</div>
-    <div id="content" class="hidden">
-      <div id="orderItems" class="space-y-6"></div>
-    </div>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+  <div class="absolute top-4 right-4">
+    <button id="lang-switcher"
+            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+      Bahasa Melayu
+    </button>
   </div>
 
-  <script>
-    const orderSn = new URLSearchParams(window.location.search).get('order_sn');
-    const API_BASE = window.location.origin.replace(/\/$/, "");
+  <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
+    <div class="text-center">
+      <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
+      <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
+    </div>
+
+    <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
+      <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
+      <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
+    </div>
+
+    <div id="products-container" class="space-y-4"></div>
+  </div>
+
+<script>
+(() => {
+  const backendUrl = "https://havicbot-backend.onrender.com";
+
+  // =======================================================
+  // FULLY PATCHED SCRIPT
+  // =======================================================
+
+  const translations = {
+    en: {
+      title: "Voucher Redemption",
+      status_fetching: "Fetching your order details...",
+      status_ready: "Your products are ready. Please redeem them below.",
+      status_failed_fetch: "Failed to fetch order details. Please check the Order ID and try again.",
+      order_sn_label: "Order SN",
+      redeem_button: "Redeem",
+      redeeming_button: "Redeeming...",
+      redeemed_button: "Redeemed!",
+      phone_label: "Generated Phone Number",
+      otp_label: "Verification Code (OTP)",
+      status_waiting_otp: "Waiting for OTP...",
+      status_received: "OTP Received!",
+      status_timeout: "OTP not received in time.",
+      lang_button: "Bahasa Melayu",
+      copy: "Copy",
+      copied: "Copied!",
+    },
+    ms: {
+      title: "Penebusan Baucar",
+      status_fetching: "Memuatkan butiran pesanan anda...",
+      status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
+      status_failed_fetch: "Gagal memuatkan butiran pesanan. Sila semak ID Pesanan dan cuba lagi.",
+      order_sn_label: "SN Pesanan",
+      redeem_button: "Tebus",
+      redeeming_button: "Menebus...",
+      redeemed_button: "Telah Ditebus!",
+      phone_label: "Nombor Telefon Dijana",
+      otp_label: "Kod Pengesahan (OTP)",
+      status_waiting_otp: "Menunggu OTP...",
+      status_received: "OTP Diterima!",
+      status_timeout: "OTP tidak diterima dalam masa.",
+      lang_button: "English",
+      copy: "Salin",
+      copied: "Disalin!",
+    }
+  };
+
+  let currentLang = 'en';
+
+  // ========== i18n Helpers ==========
+  function t(key, ...args) {
+    const translation = translations[currentLang]?.[key] || translations.en[key];
+    if (typeof translation === 'function') {
+      return translation(...args);
+    }
+    return translation;
+  }
+
+  function setLanguage(lang) {
+    currentLang = lang;
+    document.querySelectorAll('[data-translate]').forEach(el => {
+      const key = el.getAttribute('data-translate');
+      el.textContent = t(key);
+    });
+    document.getElementById('lang-switcher').textContent = t('lang_button');
+  }
+
+  // ========== Utils / State Management ==========
+  function getQS(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+  }
+
+  function getOrderSn() {
+    return getQS('order_sn');
+  }
+
+  function loadOrderState(orderSn) {
+    if (!orderSn) return {};
+    try {
+      const state = JSON.parse(localStorage.getItem(`order_${orderSn}`));
+      return state && typeof state === 'object' ? state : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveOrderState(orderSn, state) {
+    if (!orderSn) return;
+    localStorage.setItem(`order_${orderSn}`, JSON.stringify(state));
+  }
+  
+  function ensureEntry(state, index) {
+    state.items = state.items || [];
+    if (!state.items[index]) {
+      state.items[index] = {};
+    }
+    return state.items[index];
+  }
+
+  // ========== UI & Copy Helpers ==========
+  async function copyText(text, btn) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const originalText = btn.textContent;
+      btn.textContent = t('copied');
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  }
+  
+  function attachCopyHandlers(index) {
+    document.getElementById(`copy-phone-btn-${index}`)?.addEventListener('click', (e) => {
+      const phone = document.getElementById(`phone-box-${index}`).textContent;
+      copyText(phone, e.target);
+    });
+    document.getElementById(`copy-otp-btn-${index}`)?.addEventListener('click', (e) => {
+      const otp = document.getElementById(`otp-box-${index}`).textContent;
+      copyText(otp, e.target);
+    });
+  }
+  
+  function setBtnState(btn, state) {
+      const translations = {
+        idle: t('redeem_button'),
+        redeeming: t('redeeming_button'),
+        redeemed: t('redeemed_button')
+      };
+      btn.textContent = translations[state] || translations.idle;
+      btn.disabled = (state === 'redeeming' || state === 'redeemed');
+      btn.classList.toggle('bg-blue-600', state === 'idle');
+      btn.classList.toggle('hover:bg-blue-700', state === 'idle');
+      btn.classList.toggle('bg-gray-400', state === 'redeeming' || state === 'redeemed');
+      btn.classList.toggle('cursor-not-allowed', state === 'redeeming' || state === 'redeemed');
+  }
+
+  function injectRedemptionUI(container, index) {
+    container.innerHTML = `
+      <div class="mb-4 text-left">
+        <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="phone_label">${t('phone_label')}</label>
+        <div class="flex items-center">
+          <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono"></div>
+          <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
+        </div>
+      </div>
+      <div class="mb-2 text-left">
+        <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="otp_label">${t('otp_label')}</label>
+        <div class="flex items-center">
+          <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono"></div>
+          <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
+        </div>
+      </div>
+      <div id="timer-${index}" class="text-sm text-center text-gray-600 mt-2"></div>
+    `;
+    attachCopyHandlers(index);
+  }
+
+  // ========== API & Redemption Logic ==========
+
+  async function pollForOtp(orderSn, stateEntry, index, redeemBtn, pollingInterval) {
+    try {
+      const res = await fetch(`${backendUrl}/check-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopeeId: orderSn,
+          provider: stateEntry.provider,
+          providerOrderId: stateEntry.providerOrderId
+        })
+      });
+      const data = await res.json();
+
+      if (data.otp) {
+        clearInterval(pollingInterval);
+        stateEntry.otp = data.otp;
+        stateEntry.status = 'redeemed';
+        saveOrderState(orderSn, loadOrderState(orderSn)); // Save the whole state object
+        
+        document.getElementById(`otp-box-${index}`).textContent = data.otp;
+        document.getElementById(`timer-${index}`).textContent = `✅ ${t('status_received')}`;
+        setBtnState(redeemBtn, 'redeemed');
+
+        // Confirm redemption with backend
+        await fetch(`${backendUrl}/confirm-redemption`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopeeId: orderSn, productIndex: index })
+        });
+      }
+    } catch (error) {
+      console.error("Error polling for OTP:", error);
+    }
+  }
+
+  async function startRedemptionProcess(orderSn, item, index, redeemBtn) {
+    const orderState = loadOrderState(orderSn);
+    const stateEntry = ensureEntry(orderState, index);
+
+    const uiContainer = document.getElementById(`redemption-ui-${index}`);
+    uiContainer.classList.remove('hidden');
+    injectRedemptionUI(uiContainer, index);
+    setBtnState(redeemBtn, 'redeeming');
+    
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const timerEl = document.getElementById(`timer-${index}`);
+    timerEl.textContent = `⏳ ${t('redeeming_button')}`;
+
+    try {
+      const res = await fetch(`${backendUrl}/get-phone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopeeId: orderSn,
+          product: item.name,
+          productIndex: index
+        })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.phoneNumber) {
+        throw new Error(data.message || 'Failed to get phone number.');
+      }
+
+      // Update and save state
+      stateEntry.status = 'pending';
+      stateEntry.phoneNumber = data.phoneNumber;
+      stateEntry.provider = data.provider;
+      stateEntry.providerOrderId = data.providerOrderId;
+      saveOrderState(orderSn, orderState);
+
+      // Update UI and start polling
+      phoneBox.textContent = data.phoneNumber;
+      timerEl.textContent = `⏱️ ${t('status_waiting_otp')}`;
+      
+      const pollingInterval = setInterval(() => {
+        pollForOtp(orderSn, stateEntry, index, redeemBtn, pollingInterval);
+      }, 5000); // Poll every 5 seconds
+
+    } catch (error) {
+      console.error("Redemption process failed:", error);
+      timerEl.textContent = `❌ ${error.message}`;
+      setBtnState(redeemBtn, 'idle');
+    }
+  }
+  
+  function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn) {
+      if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
+
+      const uiContainer = document.getElementById(`redemption-ui-${index}`);
+      uiContainer.classList.remove('hidden');
+      injectRedemptionUI(uiContainer, index);
+
+      if (stateEntry.phoneNumber) {
+        document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
+      }
+      
+      if (stateEntry.status === 'redeemed' && stateEntry.otp) {
+        document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
+        document.getElementById(`timer-${index}`).textContent = `✅ ${t('status_received')}`;
+        setBtnState(redeemBtn, 'redeemed');
+      } else if (stateEntry.status === 'pending') {
+        setBtnState(redeemBtn, 'redeeming');
+        document.getElementById(`timer-${index}`).textContent = `⏱️ ${t('status_waiting_otp')}`;
+        const pollingInterval = setInterval(() => {
+          pollForOtp(orderSn, stateEntry, index, redeemBtn, pollingInterval);
+        }, 5000);
+      }
+  }
+
+
+  // ========== Main Boot Function ==========
+  async function boot() {
+    document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+    setLanguage('en');
+
+    const statusText = document.getElementById('status-text');
+    const orderSn = getOrderSn();
+    const orderSnDisplay = document.getElementById('order-sn-display');
+    const productsContainer = document.getElementById('products-container');
+    const orderState = loadOrderState(orderSn);
 
     if (!orderSn) {
-      document.getElementById("loading").textContent = "Invalid order.";
-    } else {
-      fetchOrderDetails();
+      statusText.textContent = "No Order ID found in URL.";
+      return;
     }
 
-    async function fetchOrderDetails() {
-      try {
-        const res = await fetch(`${API_BASE}/get-order-details`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId: orderSn })
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.message || "Failed");
+    orderSnDisplay.textContent = orderSn;
+    document.getElementById('order-details-container').classList.remove('hidden');
 
-        document.getElementById("loading").classList.add("hidden");
-        document.getElementById("content").classList.remove("hidden");
-        renderItems(data.items);
-      } catch (e) {
-        document.getElementById("loading").textContent = "Failed to load order details.";
-        console.error(e);
+    try {
+      const res = await fetch(`${backendUrl}/get-order-details`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopeeId: orderSn })
+      });
+
+      if (!res.ok) throw new Error(`Server responded with status: ${res.status}`);
+
+      const data = await res.json();
+      if (!data.success || !data.items || data.items.length === 0) {
+        throw new Error(data.message || "No items found for this order.");
       }
-    }
 
-    function renderItems(items) {
-      const container = document.getElementById("orderItems");
-      container.innerHTML = "";
+      statusText.textContent = t('status_ready');
+      statusText.className = 'text-green-600 mb-6';
 
-      items.forEach((item, idx) => {
-        const box = document.createElement("div");
-        box.className = "border rounded-xl p-4 shadow";
-
-        box.innerHTML = `
-          <h2 class="font-semibold text-lg mb-2">${item.name}</h2>
-          <div class="flex flex-col space-y-2">
-            <button class="generate-btn px-4 py-2 bg-orange-500 text-white rounded-lg" data-idx="${idx}">
-              Generate Number
+      data.items.forEach((item, index) => {
+        const productCard = document.createElement('div');
+        productCard.className = 'p-4 border rounded-lg bg-gray-50';
+        productCard.innerHTML = `
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
+            <button id="redeem-btn-${index}" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-32">
+              ${t('redeem_button')}
             </button>
-            <div class="phone-box hidden">
-              <div class="flex items-center justify-between border rounded-lg px-3 py-2">
-                <span class="phone-number text-gray-800 font-mono"></span>
-                <button class="copy-btn text-blue-600 text-sm">Copy</button>
-              </div>
-              <div class="mt-2 flex space-x-2">
-                <button class="change-btn px-3 py-1 bg-gray-300 rounded-lg text-sm" disabled>Change Number</button>
-                <button class="request-otp-btn px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm hidden">Request Another OTP</button>
-              </div>
-              <div class="mt-3 border rounded-lg p-3 text-left">
-                <div class="otp-code font-mono text-xl text-gray-800">Waiting for OTP...</div>
-                <div class="timer text-sm text-gray-500"></div>
-              </div>
-            </div>
           </div>
+          <div id="redemption-ui-${index}" class="mt-4 pt-4 border-t border-gray-200 hidden"></div>
         `;
+        productsContainer.appendChild(productCard);
 
-        container.appendChild(box);
-        setupItem(box, idx, item.name);
+        const redeemBtn = document.getElementById(`redeem-btn-${index}`);
+        redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn));
+        
+        // Restore UI state on page load
+        const stateEntry = ensureEntry(orderState, index);
+        restoreVoucherUI(orderSn, index, stateEntry, redeemBtn);
       });
+
+    } catch (error) {
+      console.error("Failed to boot:", error);
+      statusText.textContent = t('status_failed_fetch');
+      statusText.className = 'text-red-600 mb-6';
     }
+  }
 
-    function setupItem(box, idx, productName) {
-      const genBtn = box.querySelector(".generate-btn");
-      const phoneBox = box.querySelector(".phone-box");
-      const phoneNumberSpan = box.querySelector(".phone-number");
-      const copyBtn = box.querySelector(".copy-btn");
-      const changeBtn = box.querySelector(".change-btn");
-      const requestOtpBtn = box.querySelector(".request-otp-btn");
-      const otpCode = box.querySelector(".otp-code");
-      const timerEl = box.querySelector(".timer");
+  window.addEventListener('load', boot);
 
-      let provider = null;
-      let providerOrderId = null;
-      let countdownInterval;
-
-      genBtn.addEventListener("click", async () => {
-        genBtn.disabled = true;
-        genBtn.textContent = "Fetching number...";
-        try {
-          const res = await fetch(`${API_BASE}/get-phone`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderSn, product: productName, productIndex: idx })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message);
-
-          phoneNumberSpan.textContent = data.phoneNumber;
-          phoneBox.classList.remove("hidden");
-          provider = data.provider;
-          providerOrderId = data.providerOrderId;
-
-          startCountdown(300, changeBtn, timerEl);
-
-          pollOtp(otpCode, requestOtpBtn, provider, providerOrderId);
-        } catch (e) {
-          alert("Failed to fetch number: " + e.message);
-        } finally {
-          genBtn.disabled = false;
-          genBtn.textContent = "Generate Number";
-        }
-      });
-
-      copyBtn.addEventListener("click", () => {
-        navigator.clipboard.writeText(phoneNumberSpan.textContent);
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
-      });
-
-      changeBtn.addEventListener("click", async () => {
-        if (!providerOrderId) return;
-        await fetch(`${API_BASE}/cancel-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId: orderSn, provider, providerOrderId })
-        });
-        location.reload();
-      });
-
-      requestOtpBtn.addEventListener("click", async () => {
-        if (!providerOrderId) return;
-        await fetch(`${API_BASE}/request-another-otp`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopeeId: orderSn, provider, providerOrderId })
-        });
-        otpCode.textContent = "Waiting for new OTP...";
-      });
-    }
-
-    function startCountdown(seconds, btn, timerEl) {
-      let remaining = seconds;
-      btn.disabled = true;
-      timerEl.textContent = `Change Number available in ${remaining}s`;
-
-      const interval = setInterval(() => {
-        remaining--;
-        if (remaining > 0) {
-          timerEl.textContent = `Change Number available in ${remaining}s`;
-        } else {
-          clearInterval(interval);
-          btn.disabled = false;
-          timerEl.textContent = "You can now change number.";
-        }
-      }, 1000);
-    }
-
-    async function pollOtp(otpEl, requestOtpBtn, provider, providerOrderId) {
-      const interval = setInterval(async () => {
-        try {
-          const res = await fetch(`${API_BASE}/check-otp`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ shopeeId: orderSn, provider, providerOrderId })
-          });
-          const data = await res.json();
-          if (data.otp) {
-            otpEl.textContent = `OTP: ${data.otp}`;
-            clearInterval(interval);
-            requestOtpBtn.classList.remove("hidden");
-          }
-        } catch (e) {
-          console.error("pollOtp error", e);
-        }
-      }, 5000);
-    }
-  </script>
+})();
+</script>
 </body>
 </html>
