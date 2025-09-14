@@ -1,249 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Voucher Redemption - HavicBot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>body{font-family:'Inter',sans-serif}</style>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-
-  <!-- UNCHANGED: language switcher -->
-  <div class="absolute top-4 right-4">
-    <button id="lang-switcher"
-            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
-      Bahasa Melayu
-    </button>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div id="main" class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-8 text-center">
+    <h1 class="text-2xl font-bold mb-6" style="color:#EE4D2D;">Voucher Redemption</h1>
+    <div id="loading" class="text-blue-600 font-medium">Fetching your order details...</div>
+    <div id="content" class="hidden">
+      <div id="orderItems" class="space-y-6"></div>
+    </div>
   </div>
 
-  <!-- UNCHANGED: container -->
-  <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
-    <div class="text-center">
-      <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
-      <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
-    </div>
+  <script>
+    const orderSn = new URLSearchParams(window.location.search).get('order_sn');
+    const API_BASE = window.location.origin.replace(/\/$/, "");
 
-    <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
-      <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
-      <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
-    </div>
-
-    <div id="products-container" class="space-y-4"></div>
-  </div>
-
-<script>
-(() => {
-  const backendUrl = "https://havicbot-backend.onrender.com";
-
-  // ========== i18n (UNCHANGED) ==========
-  const translations = {
-    en: {
-      title: "Voucher Redemption",
-      status_fetching: "Fetching your order details...",
-      status_ready: "Your products are ready. Please redeem them below.",
-      status_failed_fetch: "Failed to fetch order details.",
-      order_sn_label: "Order SN",
-      redeem_button: "Redeem",
-      redeeming_button: "Redeeming...",
-      redeemed_button: "Redeemed!",
-      phone_label: "Generated Phone Number",
-      otp_label: "Verification Code (OTP)",
-      status_waiting_otp: "Waiting for OTP...",
-      status_received: "OTP Received!",
-      status_timeout: "OTP not received in time.",
-      lang_button: "Bahasa Melayu",
-      error_get_number: "Unable to get number",
-      retry: "Retry",
-      getting_number_retrying: (n, total) => `Waiting for available numbers… (retry ${n}/${total})`,
-      copy: "Copy",
-      copied: "Copied!",
-      cancel_button: "Cancel",
-      cancel_button_timed: (t) => `Cancel (${t})`,
-      generate_new_number_button: "Generate New Number",
-      request_another_otp: "Request Another OTP"
-    },
-    ms: {
-      title: "Penebusan Baucar",
-      status_fetching: "Memuatkan butiran pesanan anda...",
-      status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
-      status_failed_fetch: "Gagal memuatkan butiran pesanan.",
-      order_sn_label: "SN Pesanan",
-      redeem_button: "Tebus",
-      redeeming_button: "Menebus...",
-      redeemed_button: "Telah Ditebus!",
-      phone_label: "Nombor Telefon Dijana",
-      otp_label: "Kod Pengesahan (OTP)",
-      status_waiting_otp: "Menunggu OTP...",
-      status_received: "OTP Diterima!",
-      status_timeout: "OTP tidak diterima dalam masa.",
-      lang_button: "English",
-      error_get_number: "Tidak dapat memperoleh nombor",
-      retry: "Cuba Lagi",
-      getting_number_retrying: (n, total) => `Menunggu nombor tersedia… (cubaan ${n}/${total})`,
-      copy: "Salin",
-      copied: "Disalin!",
-      cancel_button: "Batal",
-      cancel_button_timed: (t) => `Batal (${t})`,
-      generate_new_number_button: "Jana Nombor Baru",
-      request_another_otp: "Minta OTP Lain"
-    }
-  };
-  let currentLang = 'en';
-  function setLanguage(lang){ /* UNCHANGED */ ... }
-  function t(k,...args){ /* UNCHANGED */ ... }
-
-  // ========== Utils / State (UNCHANGED) ==========
-  function getQS(name){ ... }
-  function getOrderSn(){ ... }
-  function loadOrderState(orderSn){ ... }
-  function saveOrderState(orderSn, state){ ... }
-  function ensureEntry(state, index){ ... }
-
-  // ========== Copy helpers (UNCHANGED) ==========
-  function copyText(text, btn){ ... }
-  function setCopyEnabled(index, enabled){ ... }
-  function setPhoneCopyEnabled(index, enabled){ ... }
-  function attachCopyHandlers(index){ ... }
-
-  // ========== UI Injection (UNCHANGED + NEW) ==========
-  function injectRedemptionUI(container, index){
-    container.innerHTML = `
-      <div class="mb-4 text-left">
-        <!-- phone box -->
-        ...
-      </div>
-      <div class="mb-2 text-left">
-        <!-- otp box -->
-        ...
-      </div>
-      <div id="timer-${index}" class="text-xs text-right text-gray-500 mt-1"></div>
-
-      <div id="cancel-container-${index}" class="mt-4 text-center hidden">
-        <button id="cancel-btn-${index}" ...></button>
-        <button id="retry-btn-${index}" ...>${t('generate_new_number_button')}</button>
-        <!-- [NEW] Request Another OTP -->
-        <button id="request-otp-btn-${index}" 
-                class="w-full mt-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 rounded-lg hidden"
-                data-translate="request_another_otp">${t('request_another_otp')}</button>
-      </div>
-    `;
-    attachCopyHandlers(index);
-  }
-
-  // ========== [RESTORED] startRedemptionProcess ==========
-  async function startRedemptionProcess(orderSn, item, index, redeemBtn, cancelBtn, retryBtn){
-    const st = ensureEntry(orderState, index);
-    st.productName = item.name;
-    st.requestStartTs = Date.now(); // 5-min cancel timer
-    saveOrderState(orderSn, orderState);
-
-    redeemBtn.classList.add('hidden'); // hide Redeem
-    manageCancelButton(orderSn, index, st); // show Cancel (locked 5 min)
-
-    setBtnState(redeemBtn, 'redeeming'); // visual state
-    await requestPhoneNumber(orderSn, item.productKey, index, st, redeemBtn);
-  }
-
-  // ========== [RESTORED] restoreVoucherUI ==========
-  function restoreVoucherUI(orderSn, index, state, redeemBtn){
-    const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox   = document.getElementById(`otp-box-${index}`);
-    const timerEl  = document.getElementById(`timer-${index}`);
-
-    if (state.phoneNumber) {
-      phoneBox.textContent = state.phoneNumber;
-      setPhoneCopyEnabled(index, true);
-    }
-
-    if (state.status === 'redeemed' && state.otp) {
-      otpBox.textContent = state.otp;
-      setBtnState(redeemBtn, 'redeemed');
-      timerEl.textContent = `✅ ${t('status_received')}`;
-      setCopyEnabled(index, true);
-      document.getElementById(`cancel-container-${index}`).classList.add('hidden');
-      // [NEW] show Request Another OTP button
-      revealRequestOtpButton(orderSn, state, index);
-      return;
-    }
-
-    if (state.status === 'pending' && state.provider && state.providerOrderId && state.countdownEnd) {
-      setBtnState(redeemBtn, 'redeeming');
-      const iv = startTimer(index, state.countdownEnd, timerEl);
-      setPhoneCopyEnabled(index, true);
-      setCopyEnabled(index, false);
-      pollForOtp(orderSn, state, index, redeemBtn, iv);
-      document.getElementById(`cancel-container-${index}`).classList.add('hidden');
-    } else if (state.requestStartTs) {
-      redeemBtn.classList.add('hidden');
-      manageCancelButton(orderSn, index, state);
+    if (!orderSn) {
+      document.getElementById("loading").textContent = "Invalid order.";
     } else {
-      setBtnState(redeemBtn, 'idle');
-      setCopyEnabled(index, false);
+      fetchOrderDetails();
     }
-  }
 
-  // ========== [NEW] Request Another OTP reveal ==========
-  function revealRequestOtpButton(orderSn, state, index){
-    const btn = document.getElementById(`request-otp-btn-${index}`);
-    if (!btn) return;
-    btn.classList.remove('hidden');
-    btn.onclick = async () => {
+    async function fetchOrderDetails() {
       try {
-        const res = await fetch(`${backendUrl}/request-another-otp`, {
+        const res = await fetch(`${API_BASE}/get-order-details`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            shopeeId: orderSn,
-            provider: state.provider,
-            providerOrderId: state.providerOrderId
-          })
+          body: JSON.stringify({ shopeeId: orderSn })
         });
-        const data = await res.json().catch(()=>({}));
-        if (res.ok && data.success) {
-          alert("Another OTP has been requested.");
-        } else {
-          alert("Failed to request another OTP.");
-        }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || "Failed");
+
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("content").classList.remove("hidden");
+        renderItems(data.items);
       } catch (e) {
-        alert("Error requesting OTP.");
+        document.getElementById("loading").textContent = "Failed to load order details.";
+        console.error(e);
       }
-    };
-  }
+    }
 
-  // ========== Boot (patched to use restoreVoucherUI) ==========
-  async function boot(){
-    ...
-    items.forEach((item, index) => {
-      ...
-      const redeemBtn = document.getElementById(`redeem-btn-${index}`);
-      const cancelBtn = document.getElementById(`cancel-btn-${index}`);
-      const retryBtn  = document.getElementById(`retry-btn-${index}`);
+    function renderItems(items) {
+      const container = document.getElementById("orderItems");
+      container.innerHTML = "";
 
-      // [RESTORED] wire redeem + retry
-      redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn, cancelBtn, retryBtn));
-      retryBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn, cancelBtn, retryBtn));
+      items.forEach((item, idx) => {
+        const box = document.createElement("div");
+        box.className = "border rounded-xl p-4 shadow";
 
-      // [RESTORED] cancel logic
-      cancelBtn.addEventListener('click', () => {
-        if (cancelBtn.disabled) return;
-        const st = ensureEntry(orderState, index);
-        delete st.requestStartTs;
-        saveOrderState(orderSn, orderState);
+        box.innerHTML = `
+          <h2 class="font-semibold text-lg mb-2">${item.name}</h2>
+          <div class="flex flex-col space-y-2">
+            <button class="generate-btn px-4 py-2 bg-orange-500 text-white rounded-lg" data-idx="${idx}">
+              Generate Number
+            </button>
+            <div class="phone-box hidden">
+              <div class="flex items-center justify-between border rounded-lg px-3 py-2">
+                <span class="phone-number text-gray-800 font-mono"></span>
+                <button class="copy-btn text-blue-600 text-sm">Copy</button>
+              </div>
+              <div class="mt-2 flex space-x-2">
+                <button class="change-btn px-3 py-1 bg-gray-300 rounded-lg text-sm" disabled>Change Number</button>
+                <button class="request-otp-btn px-3 py-1 bg-indigo-500 text-white rounded-lg text-sm hidden">Request Another OTP</button>
+              </div>
+              <div class="mt-3 border rounded-lg p-3 text-left">
+                <div class="otp-code font-mono text-xl text-gray-800">Waiting for OTP...</div>
+                <div class="timer text-sm text-gray-500"></div>
+              </div>
+            </div>
+          </div>
+        `;
 
-        cancelBtn.classList.add('hidden');
-        retryBtn.classList.remove('hidden');
-        document.getElementById(`phone-box-${index}`).textContent = '';
+        container.appendChild(box);
+        setupItem(box, idx, item.name);
+      });
+    }
+
+    function setupItem(box, idx, productName) {
+      const genBtn = box.querySelector(".generate-btn");
+      const phoneBox = box.querySelector(".phone-box");
+      const phoneNumberSpan = box.querySelector(".phone-number");
+      const copyBtn = box.querySelector(".copy-btn");
+      const changeBtn = box.querySelector(".change-btn");
+      const requestOtpBtn = box.querySelector(".request-otp-btn");
+      const otpCode = box.querySelector(".otp-code");
+      const timerEl = box.querySelector(".timer");
+
+      let provider = null;
+      let providerOrderId = null;
+      let countdownInterval;
+
+      genBtn.addEventListener("click", async () => {
+        genBtn.disabled = true;
+        genBtn.textContent = "Fetching number...";
+        try {
+          const res = await fetch(`${API_BASE}/get-phone`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shopeeId: orderSn, product: productName, productIndex: idx })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message);
+
+          phoneNumberSpan.textContent = data.phoneNumber;
+          phoneBox.classList.remove("hidden");
+          provider = data.provider;
+          providerOrderId = data.providerOrderId;
+
+          startCountdown(300, changeBtn, timerEl);
+
+          pollOtp(otpCode, requestOtpBtn, provider, providerOrderId);
+        } catch (e) {
+          alert("Failed to fetch number: " + e.message);
+        } finally {
+          genBtn.disabled = false;
+          genBtn.textContent = "Generate Number";
+        }
       });
 
-      // [RESTORED] restore UI on reload
-      const st = ensureEntry(orderState, index);
-      restoreVoucherUI(orderSn, index, st, redeemBtn);
-    });
-  }
-  window.addEventListener('load', boot);
-})();
-</script>
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(phoneNumberSpan.textContent);
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+      });
+
+      changeBtn.addEventListener("click", async () => {
+        if (!providerOrderId) return;
+        await fetch(`${API_BASE}/cancel-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopeeId: orderSn, provider, providerOrderId })
+        });
+        location.reload();
+      });
+
+      requestOtpBtn.addEventListener("click", async () => {
+        if (!providerOrderId) return;
+        await fetch(`${API_BASE}/request-another-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopeeId: orderSn, provider, providerOrderId })
+        });
+        otpCode.textContent = "Waiting for new OTP...";
+      });
+    }
+
+    function startCountdown(seconds, btn, timerEl) {
+      let remaining = seconds;
+      btn.disabled = true;
+      timerEl.textContent = `Change Number available in ${remaining}s`;
+
+      const interval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          timerEl.textContent = `Change Number available in ${remaining}s`;
+        } else {
+          clearInterval(interval);
+          btn.disabled = false;
+          timerEl.textContent = "You can now change number.";
+        }
+      }, 1000);
+    }
+
+    async function pollOtp(otpEl, requestOtpBtn, provider, providerOrderId) {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/check-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ shopeeId: orderSn, provider, providerOrderId })
+          });
+          const data = await res.json();
+          if (data.otp) {
+            otpEl.textContent = `OTP: ${data.otp}`;
+            clearInterval(interval);
+            requestOtpBtn.classList.remove("hidden");
+          }
+        } catch (e) {
+          console.error("pollOtp error", e);
+        }
+      }, 5000);
+    }
+  </script>
 </body>
 </html>
