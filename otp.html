@@ -321,24 +321,139 @@
 
   function startRedemptionProcess(orderSn, item, index, redeemBtn) {
     const orderState = loadOrderState(orderSn);
-// ... existing code ... -->
+    const stateEntry = ensureEntry(orderState, index);
+    
+    redeemBtn.classList.add('hidden');
+    const uiContainer = document.getElementById(`redemption-ui-${index}`);
+    uiContainer.classList.remove('hidden');
+    injectRedemptionUI(uiContainer, index);
+
+    stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
+    stateEntry.changeNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
+    saveOrderState(orderSn, orderState);
+    
+    const timerEl = document.getElementById(`timer-${index}`);
+    startTimer(index, stateEntry.countdownEnd, timerEl, () => {
+      // On main timer end, disable buttons
+      const changeBtn = document.getElementById(`change-number-btn-${index}`);
+      const requestBtn = document.getElementById(`request-otp-btn-${index}`);
+      if (changeBtn) changeBtn.disabled = true;
+      if (requestBtn) requestBtn.disabled = true;
+    });
+
+    manageChangeNumberButton(index, stateEntry.changeNumberAvailableTs);
+    document.getElementById(`change-number-btn-${index}`).onclick = () => fetchPhoneNumber(orderSn, item, index, redeemBtn);
+    document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, stateEntry, index);
     
     fetchPhoneNumber(orderSn, item, index, redeemBtn);
   }
   
-  function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn) {
+  function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
       if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
-      // --- FIX STARTS HERE ---
       // If timer values are missing on reload, re-initialize them.
       if (!stateEntry.countdownEnd || !stateEntry.changeNumberAvailableTs) {
         stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
         stateEntry.changeNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
-        saveOrderState(orderSn, loadOrderState(orderSn));
+        saveOrderState(orderSn, orderState);
       }
-      // --- FIX ENDS HERE ---
 
       redeemBtn.classList.add('hidden');
       const uiContainer = document.getElementById(`redemption-ui-${index}`);
-// ... existing code ... -->
+      uiContainer.classList.remove('hidden');
+      injectRedemptionUI(uiContainer, index);
+
+      const timerEl = document.getElementById(`timer-${index}`);
+      startTimer(index, stateEntry.countdownEnd, timerEl, () => {
+          const changeBtn = document.getElementById(`change-number-btn-${index}`);
+          const requestBtn = document.getElementById(`request-otp-btn-${index}`);
+          if (changeBtn) changeBtn.disabled = true;
+          if (requestBtn) requestBtn.disabled = true;
+      });
+      
+      manageChangeNumberButton(index, stateEntry.changeNumberAvailableTs);
+      const itemData = JSON.parse(document.getElementById(`redeem-btn-${index}`).dataset.item);
+      document.getElementById(`change-number-btn-${index}`).onclick = () => fetchPhoneNumber(orderSn, itemData, index, redeemBtn);
+      document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, stateEntry, index);
+
+      if (stateEntry.phoneNumber) {
+        document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
+      }
+      
+      if (stateEntry.otpReceived) {
+          document.getElementById(`request-otp-btn-${index}`).classList.remove('hidden');
+      }
+      
+      if (stateEntry.status === 'redeemed' && stateEntry.otp) {
+        document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
+      } else if (stateEntry.status === 'pending') {
+        const pollingInterval = setInterval(() => {
+          pollForOtp(orderSn, stateEntry, index, redeemBtn, pollingInterval);
+        }, 5000);
+      }
+  }
+
+  async function boot() {
+    document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+    setLanguage('en');
+
+    const statusText = document.getElementById('status-text');
+    const orderSn = getOrderSn();
+    const productsContainer = document.getElementById('products-container');
+    const orderState = loadOrderState(orderSn);
+
+    if (!orderSn) {
+      statusText.textContent = "No Order ID found in URL.";
+      return;
+    }
+
+    document.getElementById('order-sn-display').textContent = orderSn;
+    document.getElementById('order-details-container').classList.remove('hidden');
+
+    try {
+      const res = await fetch(`${backendUrl}/get-order-details`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shopeeId: orderSn })
+      });
+
+      if (!res.ok) throw new Error(`Server Error: ${res.status}`);
+      const data = await res.json();
+      if (!data.success || !data.items || data.items.length === 0) throw new Error(data.message || "No items found.");
+
+      statusText.textContent = t('status_ready');
+      statusText.className = 'text-green-600 mb-6';
+
+      data.items.forEach((item, index) => {
+        const productCard = document.createElement('div');
+        productCard.className = 'p-4 border rounded-lg bg-gray-50';
+        productCard.innerHTML = `
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
+            <button id="redeem-btn-${index}" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-32" data-item='${JSON.stringify(item)}'>
+              ${t('redeem_button')}
+            </button>
+          </div>
+          <div id="redemption-ui-${index}" class="mt-4 pt-4 border-t border-gray-200 hidden"></div>
+        `;
+        productsContainer.appendChild(productCard);
+
+        const redeemBtn = document.getElementById(`redeem-btn-${index}`);
+        redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn));
+        
+        const stateEntry = ensureEntry(orderState, index);
+        restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState);
+      });
+
+    } catch (error) {
+      console.error("Boot Error:", error);
+      statusText.textContent = `❌ ${t('status_failed_fetch')} (${error.message})`;
+      statusText.className = 'text-red-600 mb-6';
+    }
+  }
+
+  window.addEventListener('load', boot);
+
+})();
+</script>
+</body>
+</html>
 
