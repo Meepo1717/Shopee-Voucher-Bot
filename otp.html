@@ -61,10 +61,10 @@
       requesting_otp: "Requesting...",
       otp_requested: "Requested",
       voucher_redeemed_successfully: "Voucher Successfully Redeemed!",
-      instruction_1: "1. Always verify using SMS.",
-      instruction_2: "2. Stay on this page while the phone number and OTP are being generated.",
-      instruction_3: "3. If the OTP is taking too long, please close the app, turn your phone's Airplane Mode on and off, then try again.",
-      instruction_4: "4. Please be patient as this process can take a few minutes.",
+      instruction_1: "Always verify using SMS.",
+      instruction_2: "Stay on this page while the phone number and OTP are being generated.",
+      instruction_3: "If the OTP is taking too long, please close the app, turn your phone's Airplane Mode on and off, then try again.",
+      instruction_4: "Please be patient as this process can take a few minutes.",
     },
     ms: {
       title: "Penebusan Baucar",
@@ -87,10 +87,10 @@
       requesting_otp: "Meminta...",
       otp_requested: "Diminta",
       voucher_redeemed_successfully: "Baucar Berjaya Ditebus!",
-      instruction_1: "1. Sentiasa sahkan menggunakan SMS.",
-      instruction_2: "2. Kekal di halaman ini semasa nombor telefon dan OTP dijana.",
-      instruction_3: "3. Jika OTP mengambil masa terlalu lama, sila tutup aplikasi, hidupkan dan matikan Mod Pesawat telefon anda, kemudian cuba lagi.",
-      instruction_4: "4. Sila bersabar kerana proses ini mungkin mengambil masa beberapa minit.",
+      instruction_1: "Sentiasa sahkan menggunakan SMS.",
+      instruction_2: "Kekal di halaman ini semasa nombor telefon dan OTP dijana.",
+      instruction_3: "Jika OTP mengambil masa terlalu lama, sila tutup aplikasi, hidupkan dan matikan Mod Pesawat telefon anda, kemudian cuba lagi.",
+      instruction_4: "Sila bersabar kerana proses ini mungkin mengambil masa beberapa minit.",
     }
   };
 
@@ -221,10 +221,10 @@
       </div>
       <div class="mt-4 pt-4 border-t">
           <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
-              <li data-translate="instruction_1">${t('instruction_1').substring(3)}</li>
-              <li data-translate="instruction_2">${t('instruction_2').substring(3)}</li>
-              <li data-translate="instruction_3">${t('instruction_3').substring(3)}</li>
-              <li data-translate="instruction_4">${t('instruction_4').substring(3)}</li>
+              <li data-translate="instruction_1">${t('instruction_1')}</li>
+              <li data-translate="instruction_2">${t('instruction_2')}</li>
+              <li data-translate="instruction_3">${t('instruction_3')}</li>
+              <li data-translate="instruction_4">${t('instruction_4')}</li>
           </ul>
       </div>
     `;
@@ -232,7 +232,6 @@
   }
   
   function setFinalRedeemedUI(index, stateEntry) {
-    // FIX: Ensure history is visible
     const phoneBox = document.getElementById(`phone-box-${index}`);
     const otpBox = document.getElementById(`otp-box-${index}`);
     if (phoneBox && stateEntry.phoneNumber) phoneBox.textContent = stateEntry.phoneNumber;
@@ -528,5 +527,4 @@
 </script>
 </body>
 </html>
-
 
