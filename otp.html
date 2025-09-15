@@ -109,6 +109,28 @@
       el.textContent = t(key);
     });
     document.getElementById('lang-switcher').textContent = t('lang_button');
+
+    // FIX: Re-translate dynamic content
+    const orderSn = getOrderSn();
+    const orderState = loadOrderState(orderSn);
+    if (orderState.items) {
+      orderState.items.forEach((stateEntry, index) => {
+        if (document.getElementById(`redemption-ui-${index}`)) {
+          manageGetNewNumberButton(index, stateEntry);
+          const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
+          if (requestOtpBtn) {
+            if (stateEntry.newOtpRequested) {
+              requestOtpBtn.textContent = t('otp_requested');
+            } else {
+              requestOtpBtn.textContent = t('request_new_otp');
+            }
+          }
+          if (stateEntry.status === 'redeemed') {
+            setFinalRedeemedUI(index, stateEntry);
+          }
+        }
+      });
+    }
   }
 
   function getQS(name) { return new URLSearchParams(window.location.search).get(name); }
@@ -179,30 +201,30 @@
       <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-lg font-semibold text-gray-700 font-mono"></div></div>
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">${t('phone_label')}</label>
+          <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="phone_label">${t('phone_label')}</label>
           <div class="flex items-center">
             <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono text-center text-lg">...</div>
-            <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0">${t('copy')}</button>
+            <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">${t('otp_label')}</label>
+          <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="otp_label">${t('otp_label')}</label>
           <div class="flex items-center">
             <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono text-center text-lg">...</div>
-            <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0">${t('copy')}</button>
+            <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
       </div>
       <div class="flex items-center mt-4 space-x-2">
         <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
-        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled>${t('request_new_otp')}</button>
+        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
       </div>
       <div class="mt-4 pt-4 border-t">
           <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
-              <li>${t('instruction_1').substring(3)}</li>
-              <li>${t('instruction_2').substring(3)}</li>
-              <li>${t('instruction_3').substring(3)}</li>
-              <li>${t('instruction_4').substring(3)}</li>
+              <li data-translate="instruction_1">${t('instruction_1').substring(3)}</li>
+              <li data-translate="instruction_2">${t('instruction_2').substring(3)}</li>
+              <li data-translate="instruction_3">${t('instruction_3').substring(3)}</li>
+              <li data-translate="instruction_4">${t('instruction_4').substring(3)}</li>
           </ul>
       </div>
     `;
@@ -506,4 +528,5 @@
 </script>
 </body>
 </html>
+
 
