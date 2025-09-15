@@ -21,6 +21,10 @@
         z-index: 50;
         backdrop-filter: blur(4px);
     }
+    /* --- FIX: Added a dedicated class to prevent conflicts --- */
+    .popup-hidden {
+        display: none !important;
+    }
   </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -46,7 +50,8 @@
   </div>
 
   <!-- Popup Overlay -->
-  <div id="popup-overlay" class="hidden">
+  <!-- --- FIX: Using the new dedicated class --- -->
+  <div id="popup-overlay" class="popup-hidden">
       <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
           <h2 class="text-xl font-bold mb-4 text-gray-800" data-translate="popup_title">Important Instructions</h2>
           <div class="space-y-3 text-gray-600">
@@ -478,11 +483,11 @@
   function showPopup(index) {
       overlay.dataset.itemIndex = index;
       checkbox.checked = false;
-      overlay.classList.remove('hidden');
+      overlay.classList.remove('popup-hidden'); // --- FIX: Using the new dedicated class
   }
 
   function hidePopup() {
-      overlay.classList.add('hidden');
+      overlay.classList.add('popup-hidden'); // --- FIX: Using the new dedicated class
   }
 
   checkbox.addEventListener('change', () => {
@@ -495,7 +500,7 @@
               const stateEntry = ensureEntry(orderState, itemIndex);
               stateEntry.instructionsRead = true;
               saveOrderState(orderSn, orderState);
-          }, 250);
+          }, 2000);
       }
   });
 
@@ -561,4 +566,6 @@
 </script>
 </body>
 </html>
+
+
 
