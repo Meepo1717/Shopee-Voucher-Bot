@@ -208,7 +208,7 @@
         clearInterval(pollingInterval);
         stateEntry.otp = data.otp;
         stateEntry.status = 'redeemed';
-        stateEntry.otpReceived = true;
+        stateEntry.otpReceived = true; // This is the single source of truth
         saveOrderState(orderSn, orderState);
         
         document.getElementById(`otp-box-${index}`).textContent = data.otp;
@@ -259,7 +259,7 @@
         stateEntry.provider = data.provider;
         stateEntry.providerOrderId = data.providerOrderId;
         stateEntry.otpReceived = false;
-        stateEntry.newOtpRequested = false; // Reset this on new number
+        stateEntry.newOtpRequested = false;
         saveOrderState(orderSn, orderState);
 
         phoneBox.textContent = data.phoneNumber;
@@ -277,8 +277,8 @@
 
       const orderState = loadOrderState(orderSn);
       const stateEntry = ensureEntry(orderState, index);
-      stateEntry.newOtpRequested = true; // --- FIX: Set flag
-      saveOrderState(orderSn, orderState); // --- FIX: Save state
+      stateEntry.newOtpRequested = true;
+      saveOrderState(orderSn, orderState);
 
       try {
           await fetch(`${backendUrl}/request-another-otp`, {
@@ -290,7 +290,6 @@
       } catch(e) {
           console.error("Request New OTP Error:", e);
       } finally {
-          // Keep it disabled, but change text
           btn.textContent = t('otp_requested');
       }
   }
@@ -345,7 +344,6 @@
     requestAndFetchPhoneNumber(orderSn, item, index);
   }
   
-  // --- FIX: Heavily revised restoreVoucherUI function ---
   function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
       if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
@@ -372,17 +370,18 @@
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
       }
       
-      const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       if (stateEntry.otpReceived) {
+          const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
           requestOtpBtn.classList.remove('hidden');
+          
+          if (stateEntry.otp) {
+              document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
+          }
+
           if (stateEntry.newOtpRequested) {
               requestOtpBtn.disabled = true;
               requestOtpBtn.textContent = t('otp_requested');
           }
-      }
-      
-      if (stateEntry.status === 'redeemed' && stateEntry.otp) {
-        document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
       } else if (stateEntry.status === 'pending') {
         const pollingInterval = setInterval(() => pollForOtp(orderSn, index, pollingInterval), 5000);
       }
@@ -450,4 +449,3 @@
 </script>
 </body>
 </html>
-
