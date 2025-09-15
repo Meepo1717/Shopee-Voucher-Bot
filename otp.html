@@ -58,6 +58,7 @@
       request_new_otp: "Request New OTP",
       requesting_otp: "Requesting...",
       otp_requested: "Requested",
+      voucher_redeemed_successfully: "Voucher Successfully Redeemed!",
     },
     ms: {
       title: "Penebusan Baucar",
@@ -79,6 +80,7 @@
       request_new_otp: "Minta OTP Baru",
       requesting_otp: "Meminta...",
       otp_requested: "Diminta",
+      voucher_redeemed_successfully: "Baucar Berjaya Ditebus!",
     }
   };
 
@@ -188,6 +190,36 @@
     `;
     attachCopyHandlers(index);
   }
+  
+  function setFinalRedeemedUI(index) {
+    const timerEl = document.getElementById(`timer-${index}`);
+    if (timerEl) {
+        timerEl.innerHTML = `<div class="text-center py-2"><span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span></div>`;
+        timerEl.className = '';
+    }
+
+    if (activeTimers[index]) clearInterval(activeTimers[index]);
+    delete activeTimers[index];
+    const timerKey = `get_new_number_${index}`;
+    if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
+    delete activeTimers[timerKey];
+
+    const getNewNumberBtn = document.getElementById(`get-new-number-btn-${index}`);
+    const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
+    const copyPhoneBtn = document.getElementById(`copy-phone-btn-${index}`);
+    const copyOtpBtn = document.getElementById(`copy-otp-btn-${index}`);
+    
+    if (getNewNumberBtn) {
+        getNewNumberBtn.disabled = true;
+        getNewNumberBtn.textContent = t('get_new_number_blocked');
+    }
+    if (requestOtpBtn) {
+        requestOtpBtn.disabled = true;
+        requestOtpBtn.textContent = t('otp_requested');
+    }
+    if (copyPhoneBtn) copyPhoneBtn.disabled = true;
+    if (copyOtpBtn) copyOtpBtn.disabled = true;
+  }
 
   async function pollForOtp(orderSn, index, pollingInterval) {
     const orderState = loadOrderState(orderSn);
@@ -212,10 +244,7 @@
         saveOrderState(orderSn, orderState);
         
         document.getElementById(`otp-box-${index}`).textContent = data.otp;
-        document.getElementById(`request-otp-btn-${index}`).disabled = false; // --- FIX: Enable button
-        document.getElementById(`redeem-btn-${index}`)?.classList.add('hidden');
-        
-        manageGetNewNumberButton(index, stateEntry);
+        setFinalRedeemedUI(index);
 
         await fetch(`${backendUrl}/confirm-redemption`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -247,7 +276,6 @@
       const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       requestOtpBtn.disabled = true;
       requestOtpBtn.textContent = t('request_new_otp');
-
 
       try {
         const res = await fetch(`${backendUrl}/get-phone`, {
@@ -350,21 +378,11 @@
   function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
       if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
-      if (!stateEntry.countdownEnd || !stateEntry.getNewNumberAvailableTs) {
-        stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
-        stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
-        saveOrderState(orderSn, orderState);
-      }
-
       redeemBtn.classList.add('hidden');
       const uiContainer = document.getElementById(`redemption-ui-${index}`);
       uiContainer.classList.remove('hidden');
       injectRedemptionUI(uiContainer, index);
       
-      const timerEl = document.getElementById(`timer-${index}`);
-      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageGetNewNumberButton(index, stateEntry));
-      
-      manageGetNewNumberButton(index, stateEntry);
       const itemData = JSON.parse(redeemBtn.dataset.item);
       document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
       document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
@@ -373,15 +391,31 @@
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
       }
       
-      const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
-      if (stateEntry.otpReceived) {
-          requestOtpBtn.disabled = false; // Enable if OTP is received
-          
+      if (stateEntry.status === 'redeemed') {
           if (stateEntry.otp) {
               document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
           }
+          setFinalRedeemedUI(index);
+          return;
+      }
 
-          if (stateEntry.newOtpRequested) { // This check comes after, to override
+      if (!stateEntry.countdownEnd || !stateEntry.getNewNumberAvailableTs) {
+        stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
+        stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
+        saveOrderState(orderSn, orderState);
+      }
+      
+      const timerEl = document.getElementById(`timer-${index}`);
+      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageGetNewNumberButton(index, stateEntry));
+      manageGetNewNumberButton(index, stateEntry);
+      
+      const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
+      if (stateEntry.otpReceived) {
+          requestOtpBtn.disabled = false;
+          if (stateEntry.otp) {
+              document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
+          }
+          if (stateEntry.newOtpRequested) {
               requestOtpBtn.disabled = true;
               requestOtpBtn.textContent = t('otp_requested');
           }
