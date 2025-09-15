@@ -21,6 +21,10 @@
         z-index: 50;
         backdrop-filter: blur(4px);
     }
+    /* FIX: Add a dedicated class to control visibility */
+    .popup-hidden {
+        display: none !important;
+    }
   </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -46,7 +50,8 @@
   </div>
 
   <!-- Popup Overlay -->
-  <div id="popup-overlay" class="hidden">
+  <!-- FIX: Use the new dedicated class -->
+  <div id="popup-overlay" class="popup-hidden">
       <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
           <h2 class="text-xl font-bold mb-4 text-gray-800" data-translate="popup_title">Important Instructions</h2>
           <div class="space-y-3 text-gray-600">
@@ -116,13 +121,12 @@
 
   function showPopup(index) {
       overlay.dataset.itemIndex = index;
-// ... existing code ... -->
-      overlay.classList.remove('hidden');
+      checkbox.checked = false;
+      overlay.classList.remove('popup-hidden'); // FIX: Use the new class
   }
 
   function hidePopup() {
-// ... existing code ... -->
-      overlay.classList.add('hidden');
+      overlay.classList.add('popup-hidden'); // FIX: Use the new class
   }
 
   checkbox.addEventListener('change', () => {
@@ -141,4 +145,5 @@
     document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
     setLanguage('en');
 // ... existing code ... -->
+
 
