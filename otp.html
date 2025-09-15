@@ -52,9 +52,9 @@
       lang_button: "Bahasa Melayu",
       copy: "Copy",
       copied: "Copied!",
-      change_number: "Change Number",
-      change_number_timed: (s) => `Change Number (${s})`,
-      change_number_blocked: "Blocked",
+      get_new_number: "Get New Number",
+      get_new_number_timed: (s) => `Get New Number (${s})`,
+      get_new_number_blocked: "Blocked",
       request_new_otp: "Request New OTP",
       requesting_otp: "Requesting...",
       otp_requested: "Requested",
@@ -73,9 +73,9 @@
       lang_button: "English",
       copy: "Salin",
       copied: "Disalin!",
-      change_number: "Tukar Nombor",
-      change_number_timed: (s) => `Tukar Nombor (${s})`,
-      change_number_blocked: "Disekat",
+      get_new_number: "Dapatkan Nombor Baru",
+      get_new_number_timed: (s) => `Dapatkan Nombor Baru (${s})`,
+      get_new_number_blocked: "Disekat",
       request_new_otp: "Minta OTP Baru",
       requesting_otp: "Meminta...",
       otp_requested: "Diminta",
@@ -181,9 +181,9 @@
           </div>
         </div>
       </div>
-      <div class="flex justify-between items-center mt-4 space-x-2">
-        <button id="change-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
-        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 hidden disabled:bg-gray-400 transition">${t('request_new_otp')}</button>
+      <div class="flex items-center mt-4 space-x-2">
+        <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
+        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled>${t('request_new_otp')}</button>
       </div>
     `;
     attachCopyHandlers(index);
@@ -208,14 +208,14 @@
         clearInterval(pollingInterval);
         stateEntry.otp = data.otp;
         stateEntry.status = 'redeemed';
-        stateEntry.otpReceived = true; // This is the single source of truth
+        stateEntry.otpReceived = true;
         saveOrderState(orderSn, orderState);
         
         document.getElementById(`otp-box-${index}`).textContent = data.otp;
-        document.getElementById(`request-otp-btn-${index}`).classList.remove('hidden');
+        document.getElementById(`request-otp-btn-${index}`).disabled = false; // --- FIX: Enable button
         document.getElementById(`redeem-btn-${index}`)?.classList.add('hidden');
         
-        manageChangeNumberButton(index, stateEntry);
+        manageGetNewNumberButton(index, stateEntry);
 
         await fetch(`${backendUrl}/confirm-redemption`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -229,22 +229,25 @@
       const orderState = loadOrderState(orderSn);
       const stateEntry = ensureEntry(orderState, index);
       
-      if ((stateEntry.changeNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS || stateEntry.otpReceived) {
+      if ((stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS || stateEntry.otpReceived) {
         return;
       }
 
-      stateEntry.changeNumberCount = (stateEntry.changeNumberCount || 0) + 1;
+      stateEntry.getNewNumberCount = (stateEntry.getNewNumberCount || 0) + 1;
       stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
-      stateEntry.changeNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
+      stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
       saveOrderState(orderSn, orderState);
 
-      startTimer(index, stateEntry.countdownEnd, document.getElementById(`timer-${index}`), () => manageChangeNumberButton(index, stateEntry));
-      manageChangeNumberButton(index, stateEntry);
+      startTimer(index, stateEntry.countdownEnd, document.getElementById(`timer-${index}`), () => manageGetNewNumberButton(index, stateEntry));
+      manageGetNewNumberButton(index, stateEntry);
       
       const phoneBox = document.getElementById(`phone-box-${index}`);
       phoneBox.textContent = t('redeeming_button');
       document.getElementById(`otp-box-${index}`).textContent = '...';
-      document.getElementById(`request-otp-btn-${index}`).classList.add('hidden');
+      const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
+      requestOtpBtn.disabled = true;
+      requestOtpBtn.textContent = t('request_new_otp');
+
 
       try {
         const res = await fetch(`${backendUrl}/get-phone`, {
@@ -294,31 +297,31 @@
       }
   }
     
-  function manageChangeNumberButton(index, stateEntry) {
-      const btn = document.getElementById(`change-number-btn-${index}`);
+  function manageGetNewNumberButton(index, stateEntry) {
+      const btn = document.getElementById(`get-new-number-btn-${index}`);
       if (!btn) return;
-      const timerKey = `change_${index}`;
+      const timerKey = `get_new_number_${index}`;
 
       if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
 
-      if (stateEntry.otpReceived || (stateEntry.changeNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS) {
+      if (stateEntry.otpReceived || (stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS) {
           btn.disabled = true;
-          btn.textContent = t('change_number_blocked');
+          btn.textContent = t('get_new_number_blocked');
           return;
       }
       
       const updateButton = () => {
-          const remaining = stateEntry.changeNumberAvailableTs - Date.now();
+          const remaining = stateEntry.getNewNumberAvailableTs - Date.now();
           if (remaining <= 0) {
               btn.disabled = false;
-              btn.textContent = t('change_number');
+              btn.textContent = t('get_new_number');
               if (activeTimers[timerKey]) {
                 clearInterval(activeTimers[timerKey]);
                 delete activeTimers[timerKey];
               }
           } else {
               btn.disabled = true;
-              btn.textContent = t('change_number_timed', formatTime(remaining));
+              btn.textContent = t('get_new_number_timed', formatTime(remaining));
           }
       };
       updateButton();
@@ -334,11 +337,11 @@
     uiContainer.classList.remove('hidden');
     injectRedemptionUI(uiContainer, index);
 
-    stateEntry.changeNumberCount = 0;
+    stateEntry.getNewNumberCount = 0;
     stateEntry.otpReceived = false;
     stateEntry.newOtpRequested = false;
 
-    document.getElementById(`change-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, item, index);
+    document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, item, index);
     document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
     
     requestAndFetchPhoneNumber(orderSn, item, index);
@@ -347,9 +350,9 @@
   function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
       if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
-      if (!stateEntry.countdownEnd || !stateEntry.changeNumberAvailableTs) {
+      if (!stateEntry.countdownEnd || !stateEntry.getNewNumberAvailableTs) {
         stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
-        stateEntry.changeNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
+        stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
         saveOrderState(orderSn, orderState);
       }
 
@@ -359,26 +362,26 @@
       injectRedemptionUI(uiContainer, index);
       
       const timerEl = document.getElementById(`timer-${index}`);
-      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageChangeNumberButton(index, stateEntry));
+      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageGetNewNumberButton(index, stateEntry));
       
-      manageChangeNumberButton(index, stateEntry);
+      manageGetNewNumberButton(index, stateEntry);
       const itemData = JSON.parse(redeemBtn.dataset.item);
-      document.getElementById(`change-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
+      document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
       document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
 
       if (stateEntry.phoneNumber) {
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
       }
       
+      const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       if (stateEntry.otpReceived) {
-          const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
-          requestOtpBtn.classList.remove('hidden');
+          requestOtpBtn.disabled = false; // Enable if OTP is received
           
           if (stateEntry.otp) {
               document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
           }
 
-          if (stateEntry.newOtpRequested) {
+          if (stateEntry.newOtpRequested) { // This check comes after, to override
               requestOtpBtn.disabled = true;
               requestOtpBtn.textContent = t('otp_requested');
           }
@@ -449,3 +452,4 @@
 </script>
 </body>
 </html>
+
