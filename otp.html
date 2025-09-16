@@ -54,7 +54,6 @@
       copy: "Copy",
       copied: "Copied!",
       get_new_number: "Get New Number",
-      get_new_number_timed: (s) => `Get New Number (${s})`,
       get_new_number_blocked: "Blocked",
       request_new_otp: "Request New OTP",
       requesting_otp: "Requesting...",
@@ -79,7 +78,6 @@
       copy: "Salin",
       copied: "Disalin!",
       get_new_number: "Dapatkan Nombor Baru",
-      get_new_number_timed: (s) => `Dapatkan Nombor Baru (${s})`,
       get_new_number_blocked: "Disekat",
       request_new_otp: "Minta OTP Baru",
       requesting_otp: "Meminta...",
@@ -93,7 +91,7 @@
   };
 
   let currentLang = 'en';
-  let orderViewKey = null; // Variable to store the secure view key
+  let orderViewKey = null;
   const activeTimers = {};
 
   function t(key, ...args) {
@@ -108,27 +106,6 @@
       el.textContent = t(key);
     });
     document.getElementById('lang-switcher').textContent = t('lang_button');
-
-    const orderSn = getOrderSn();
-    const orderState = loadOrderState(orderSn);
-    if (orderState.items) {
-      orderState.items.forEach((stateEntry, index) => {
-        if (document.getElementById(`redemption-ui-${index}`)) {
-          manageGetNewNumberButton(index, stateEntry);
-          const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
-          if (requestOtpBtn) {
-            if (stateEntry.newOtpRequested) {
-              requestOtpBtn.textContent = t('otp_requested');
-            } else {
-              requestOtpBtn.textContent = t('request_new_otp');
-            }
-          }
-          if (stateEntry.status === 'redeemed') {
-            setFinalRedeemedUI(index, stateEntry);
-          }
-        }
-      });
-    }
   }
 
   function getQS(name) { return new URLSearchParams(window.location.search).get(name); }
@@ -176,46 +153,74 @@
     const seconds = (totalSeconds % 60).toString().padStart(2, '0');
     return `${minutes}:${seconds}`;
   }
+  
+  function resetItemUI(index) {
+      const orderSn = getOrderSn();
+      const orderState = loadOrderState(orderSn);
+      const stateEntry = ensureEntry(orderState, index);
 
-  function startTimer(index, countdownEnd, timerEl, onEnd) {
-    if (activeTimers[index]) clearInterval(activeTimers[index]);
+      stateEntry.status = 'idle';
+      stateEntry.phoneNumber = null;
+      stateEntry.otp = null;
+      stateEntry.countdownEnd = null;
+      stateEntry.getNewNumberCount = 0;
+      saveOrderState(orderSn, orderState);
+
+      const uiContainer = document.getElementById(`redemption-ui-${index}`);
+      const redeemBtn = document.getElementById(`redeem-btn-${index}`);
+      if(uiContainer) uiContainer.classList.add('hidden');
+      if(redeemBtn) redeemBtn.classList.remove('hidden');
+  }
+
+  function startItemTimer(index, countdownEnd) {
+    const timerKey = `main_timer_${index}`;
+    if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
+    
+    const timerEl = document.getElementById(`timer-${index}`);
+
     const update = () => {
-      const remaining = countdownEnd - Date.now();
-      if (remaining <= 0) {
-        clearInterval(activeTimers[index]);
-        delete activeTimers[index];
-        timerEl.innerHTML = ''; // Hide the timer display
-        if (onEnd) onEnd();
-      } else {
-        timerEl.textContent = `⏱️ ${formatTime(remaining)}`;
-      }
+        if (!timerEl) {
+            clearInterval(activeTimers[timerKey]);
+            return;
+        }
+        const remaining = countdownEnd - Date.now();
+        if(remaining <= 0) {
+            clearInterval(activeTimers[timerKey]);
+            delete activeTimers[timerKey];
+            resetItemUI(index);
+        } else {
+            timerEl.textContent = `⏱️ ${formatTime(remaining)}`;
+        }
     };
     update();
-    activeTimers[index] = setInterval(update, 1000);
+    activeTimers[timerKey] = setInterval(update, 1000);
   }
 
   function injectRedemptionUI(container, index) {
     container.innerHTML = `
-      <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-lg font-semibold text-gray-700 font-mono"></div></div>
+      <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-lg font-semibold text-gray-700"></div></div>
       <div class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="phone_label">${t('phone_label')}</label>
           <div class="flex items-center">
-            <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono text-center text-lg">...</div>
+            <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 text-center text-lg">...</div>
             <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="otp_label">${t('otp_label')}</label>
           <div class="flex items-center">
-            <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono text-center text-lg">...</div>
+            <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 text-center text-lg">...</div>
             <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
       </div>
       <div class="flex items-center mt-4 space-x-2">
-        <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
-        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
+        <div class="w-1/2 flex items-center">
+          <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
+          <span id="get-new-number-timer-${index}" class="ml-2 text-gray-600 w-16 text-center"></span>
+        </div>
+        <button id="request-otp-btn-${index}" class="w-1/2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
       </div>
       <div class="mt-4 pt-4 border-t">
           <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
@@ -230,28 +235,35 @@
   }
   
   function setFinalRedeemedUI(index, stateEntry) {
+    const timerKey = `main_timer_${index}`;
+    if(activeTimers[timerKey]) {
+        clearInterval(activeTimers[timerKey]);
+        delete activeTimers[timerKey];
+    }
+
     const uiContainer = document.getElementById(`redemption-ui-${index}`);
     if (!uiContainer) return;
-
-    // Build the final, static HTML card for the redeemed item
     const finalHtml = `
       <div class="text-center py-2 mb-3">
           <span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span>
       </div>
       <div class="space-y-2 text-sm text-left">
-          <p><strong>${t('phone_label')}:</strong> <span class="font-mono text-gray-700">${stateEntry.phoneNumber || 'N/A'}</span></p>
-          <p><strong>${t('otp_label')}:</strong> <span class="font-mono text-gray-700">${stateEntry.otp || 'N/A'}</span></p>
+          <p><strong>${t('phone_label')}:</strong> <span class="text-gray-700">${stateEntry.phoneNumber || 'N/A'}</span></p>
+          <p><strong>${t('otp_label')}:</strong> <span class="text-gray-700">${stateEntry.otp || 'N/A'}</span></p>
       </div>
     `;
-
-    // Replace the entire interactive UI with the static card
     uiContainer.innerHTML = finalHtml;
-    uiContainer.className = 'mt-4 pt-4 border-t border-gray-200'; // Reset class to default
+    uiContainer.className = 'mt-4 pt-4 border-t border-gray-200';
   }
 
   async function pollForOtp(orderSn, index, pollingInterval) {
     const orderState = loadOrderState(orderSn);
     const stateEntry = ensureEntry(orderState, index);
+
+    if (stateEntry.countdownEnd && Date.now() > stateEntry.countdownEnd) {
+        clearInterval(pollingInterval);
+        return;
+    }
 
     try {
       const res = await fetch(`${backendUrl}/check-otp`, {
@@ -266,9 +278,7 @@
         stateEntry.status = 'redeemed';
         stateEntry.otpReceived = true;
         saveOrderState(orderSn, orderState);
-        
         setFinalRedeemedUI(index, stateEntry);
-
         await fetch(`${backendUrl}/confirm-redemption`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ shopeeId: orderSn, productIndex: index })
@@ -280,17 +290,12 @@
   async function requestAndFetchPhoneNumber(orderSn, item, index) {
       const orderState = loadOrderState(orderSn);
       const stateEntry = ensureEntry(orderState, index);
-      
-      if ((stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS || stateEntry.otpReceived) {
-        return;
-      }
+      if ((stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS || stateEntry.otpReceived) return;
 
       stateEntry.getNewNumberCount = (stateEntry.getNewNumberCount || 0) + 1;
-      stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
       stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
       saveOrderState(orderSn, orderState);
 
-      startTimer(index, stateEntry.countdownEnd, document.getElementById(`timer-${index}`), () => manageGetNewNumberButton(index, stateEntry));
       manageGetNewNumberButton(index, stateEntry);
       
       const phoneBox = document.getElementById(`phone-box-${index}`);
@@ -352,22 +357,24 @@
       const btn = document.getElementById(`get-new-number-btn-${index}`);
       if (!btn) return;
       const timerKey = `get_new_number_${index}`;
+      const timerEl = document.getElementById(`get-new-number-timer-${index}`);
 
       if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
 
       if (stateEntry.otpReceived || (stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS) {
           btn.disabled = true;
           btn.textContent = t('get_new_number_blocked');
+          if (timerEl) timerEl.textContent = '';
           return;
       }
       
       const updateButton = () => {
-          const mainSessionHasExpired = Date.now() >= (stateEntry.countdownEnd || 0);
           const changeNumberCooldownPassed = Date.now() >= (stateEntry.getNewNumberAvailableTs || 0);
 
-        if (mainSessionHasExpired || changeNumberCooldownPassed) {
+        if (changeNumberCooldownPassed) {
             btn.disabled = false;
             btn.textContent = t('get_new_number');
+            if (timerEl) timerEl.textContent = '';
             if (activeTimers[timerKey]) {
               clearInterval(activeTimers[timerKey]);
               delete activeTimers[timerKey];
@@ -375,7 +382,8 @@
         } else {
             const remaining = stateEntry.getNewNumberAvailableTs - Date.now();
             btn.disabled = true;
-            btn.textContent = t('get_new_number_timed', formatTime(remaining));
+            btn.textContent = t('get_new_number');
+            if (timerEl) timerEl.textContent = `(${formatTime(remaining)})`;
         }
       };
       updateButton();
@@ -391,6 +399,9 @@
     uiContainer.classList.remove('hidden');
     injectRedemptionUI(uiContainer, index);
 
+    stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
+    startItemTimer(index, stateEntry.countdownEnd);
+
     stateEntry.getNewNumberCount = 0;
     stateEntry.otpReceived = false;
     stateEntry.newOtpRequested = false;
@@ -404,11 +415,20 @@
   function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
       if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
+      if (stateEntry.countdownEnd && Date.now() >= stateEntry.countdownEnd) {
+          resetItemUI(index);
+          return;
+      }
+
       redeemBtn.classList.add('hidden');
       const uiContainer = document.getElementById(`redemption-ui-${index}`);
       uiContainer.classList.remove('hidden');
       injectRedemptionUI(uiContainer, index);
       
+      if (stateEntry.countdownEnd) {
+          startItemTimer(index, stateEntry.countdownEnd);
+      }
+
       const itemData = JSON.parse(redeemBtn.dataset.item);
       document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
       document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
@@ -421,15 +441,7 @@
       if (stateEntry.phoneNumber) {
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
       }
-
-      if (!stateEntry.countdownEnd || !stateEntry.getNewNumberAvailableTs) {
-        stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
-        stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
-        saveOrderState(orderSn, orderState);
-      }
       
-      const timerEl = document.getElementById(`timer-${index}`);
-      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageGetNewNumberButton(index, stateEntry));
       manageGetNewNumberButton(index, stateEntry);
       
       const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
@@ -477,8 +489,8 @@
         itemCard.innerHTML = `
           <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
           <div class="mt-3 space-y-2 text-sm">
-            <p><strong>Phone:</strong> <span class="font-mono text-gray-700">${item.phoneNumber || 'N/A'}</span></p>
-            <p><strong>OTP Code:</strong> <span class="font-mono text-gray-700">${item.otp || 'N/A'}</span></p>
+            <p><strong>Phone:</strong> <span class="text-gray-700">${item.phoneNumber || 'N/A'}</span></p>
+            <p><strong>OTP Code:</strong> <span class="text-gray-700">${item.otp || 'N/A'}</span></p>
           </div>
         `;
         productsContainer.appendChild(itemCard);
@@ -521,7 +533,7 @@
       const data = await res.json();
       if (!data.success || !data.items || data.items.length === 0) throw new Error(data.message || "No items found.");
       
-      orderViewKey = data.viewKey; // Save the viewKey
+      orderViewKey = data.viewKey;
       statusText.textContent = t('status_ready');
       statusText.className = 'text-green-600 mb-6';
       
