@@ -8,6 +8,34 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; }
+    /* NEW: CSS for the bouncing dot animation */
+    .bouncing-loader {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+    }
+    .bouncing-loader > div {
+        width: 8px;
+        height: 8px;
+        margin: 3px;
+        border-radius: 50%;
+        background-color: #a0aec0; /* gray-400 */
+        animation: bouncing-loader 0.6s infinite alternate;
+    }
+    .bouncing-loader > div:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    .bouncing-loader > div:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    @keyframes bouncing-loader {
+        to {
+            opacity: 0.3;
+            transform: translateY(-6px);
+        }
+    }
   </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -156,6 +184,13 @@
     return `${minutes}:${seconds}`;
   }
   
+  // NEW: Helper function to show the bouncing loader
+  function showBouncingLoader(element) {
+    if(element) {
+        element.innerHTML = '<div class="bouncing-loader"><div></div><div></div><div></div></div>';
+    }
+  }
+
   function resetItemUI(index) {
       const orderSn = getOrderSn();
       const orderState = loadOrderState(orderSn);
@@ -313,8 +348,10 @@
       manageGetNewNumberButton(index, stateEntry);
       
       const phoneBox = document.getElementById(`phone-box-${index}`);
+      const otpBox = document.getElementById(`otp-box-${index}`);
       phoneBox.textContent = t('redeeming_button');
-      document.getElementById(`otp-box-${index}`).textContent = '...';
+      showBouncingLoader(otpBox); // MODIFIED: Show loader
+      
       const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       requestOtpBtn.disabled = true;
       requestOtpBtn.textContent = t('request_new_otp');
@@ -340,6 +377,7 @@
       } catch (error) {
           console.error("Fetch Phone Error:", error);
           phoneBox.textContent = `❌ ${error.message}`;
+          otpBox.textContent = '...'; // Reset on error
       }
   }
     
@@ -352,16 +390,19 @@
       const stateEntry = ensureEntry(orderState, index);
       stateEntry.requestOtpCount = (stateEntry.requestOtpCount || 0) + 1;
       saveOrderState(orderSn, orderState);
+      
+      const otpBox = document.getElementById(`otp-box-${index}`);
+      showBouncingLoader(otpBox); // MODIFIED: Show loader
 
       try {
           await fetch(`${backendUrl}/request-another-otp`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ shopeeId: orderSn, provider: stateEntry.provider, providerOrderId: stateEntry.providerOrderId })
           });
-          document.getElementById(`otp-box-${index}`).textContent = '...';
           const pollingInterval = setInterval(() => pollForOtp(orderSn, index, pollingInterval), 5000);
       } catch(e) {
           console.error("Request New OTP Error:", e);
+          otpBox.textContent = '...'; // Reset on error
       } finally {
           updateRequestOtpButton(index, stateEntry);
       }
@@ -374,7 +415,6 @@
 
       if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
 
-      // MODIFIED: Simplified this check by removing max attempts
       if (stateEntry.otpReceived) {
           btn.disabled = true;
           btn.textContent = t('get_new_number_blocked');
