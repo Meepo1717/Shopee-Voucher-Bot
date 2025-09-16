@@ -37,8 +37,7 @@
   const backendUrl = "https://havicbot-backend.onrender.com";
   const MAIN_TIMER_DURATION = 10 * 60 * 1000;
   const CHANGE_NUMBER_DELAY = 5 * 60 * 1000;
-  const CHANGE_NUMBER_MAX_ATTEMPTS = 999; // Effectively disabled
-  const REQUEST_OTP_MAX_ATTEMPTS = 1; // MODIFIED: Max clicks for "Request New OTP" is now 1
+  const REQUEST_OTP_MAX_ATTEMPTS = 1;
 
   const translations = {
     en: {
@@ -375,6 +374,7 @@
 
       if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
 
+      // MODIFIED: Simplified this check by removing max attempts
       if (stateEntry.otpReceived) {
           btn.disabled = true;
           btn.textContent = t('get_new_number_blocked');
@@ -415,7 +415,7 @@
 
     stateEntry.getNewNumberCount = 0;
     stateEntry.otpReceived = false;
-    stateEntry.requestOtpCount = 0; // Initialize count here
+    stateEntry.requestOtpCount = 0;
 
     document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, item, index);
     document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
@@ -444,14 +444,9 @@
       document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
       document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
       
-      if (stateEntry.status === 'pending_otp') { // Check for intermediate state
+      if (stateEntry.status === 'pending_otp') {
           setFinalRedeemedUI(index, stateEntry);
-      } else if (stateEntry.status === 'redeemed') {
-          // This should now be a static card, but we will adapt by calling the interactive one
-          setFinalRedeemedUI(index, stateEntry); 
-          // To be fully static, you'd call a different function here.
       }
-
 
       if (stateEntry.phoneNumber) {
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
@@ -459,7 +454,6 @@
       
       manageGetNewNumberButton(index, stateEntry);
       
-      const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       if (stateEntry.otpReceived) {
           updateRequestOtpButton(index, stateEntry);
           if (stateEntry.otp) {
