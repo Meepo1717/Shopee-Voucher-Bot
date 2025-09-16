@@ -4,9 +4,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Voucher Redemption - HavicBot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn-tailwindcss.vercel.app/"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>body{font-family:'Inter',sans-serif}</style>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
@@ -16,7 +18,7 @@
     </button>
   </div>
 
-  <div class="w-full max-w-xl bg-white rounded-xl shadow-lg p-8">
+  <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
     <div class="text-center">
       <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
       <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
@@ -58,6 +60,11 @@
       request_new_otp: "Request New OTP",
       requesting_otp: "Requesting...",
       otp_requested: "Requested",
+      voucher_redeemed_successfully: "Voucher Successfully Redeemed!",
+      instruction_1: "Always verify using SMS.",
+      instruction_2: "Stay on this page while the phone number and OTP are being generated.",
+      instruction_3: "If the OTP is taking too long, please close the app, turn your phone's Airplane Mode on and off, then try again.",
+      instruction_4: "Please be patient as this process can take a few minutes.",
     },
     ms: {
       title: "Penebusan Baucar",
@@ -79,6 +86,11 @@
       request_new_otp: "Minta OTP Baru",
       requesting_otp: "Meminta...",
       otp_requested: "Diminta",
+      voucher_redeemed_successfully: "Baucar Berjaya Ditebus!",
+      instruction_1: "Sentiasa sahkan menggunakan SMS.",
+      instruction_2: "Kekal di halaman ini semasa nombor telefon dan OTP dijana.",
+      instruction_3: "Jika OTP mengambil masa terlalu lama, sila tutup aplikasi, hidupkan dan matikan Mod Pesawat telefon anda, kemudian cuba lagi.",
+      instruction_4: "Sila bersabar kerana proses ini mungkin mengambil masa beberapa minit.",
     }
   };
 
@@ -97,6 +109,28 @@
       el.textContent = t(key);
     });
     document.getElementById('lang-switcher').textContent = t('lang_button');
+
+    // FIX: Re-translate dynamic content
+    const orderSn = getOrderSn();
+    const orderState = loadOrderState(orderSn);
+    if (orderState.items) {
+      orderState.items.forEach((stateEntry, index) => {
+        if (document.getElementById(`redemption-ui-${index}`)) {
+          manageGetNewNumberButton(index, stateEntry);
+          const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
+          if (requestOtpBtn) {
+            if (stateEntry.newOtpRequested) {
+              requestOtpBtn.textContent = t('otp_requested');
+            } else {
+              requestOtpBtn.textContent = t('request_new_otp');
+            }
+          }
+          if (stateEntry.status === 'redeemed') {
+            setFinalRedeemedUI(index, stateEntry);
+          }
+        }
+      });
+    }
   }
 
   function getQS(name) { return new URLSearchParams(window.location.search).get(name); }
@@ -167,26 +201,69 @@
       <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-lg font-semibold text-gray-700 font-mono"></div></div>
       <div class="space-y-4">
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">${t('phone_label')}</label>
+          <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="phone_label">${t('phone_label')}</label>
           <div class="flex items-center">
             <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono text-center text-lg">...</div>
-            <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0">${t('copy')}</button>
+            <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">${t('otp_label')}</label>
+          <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="otp_label">${t('otp_label')}</label>
           <div class="flex items-center">
             <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 font-mono text-center text-lg">...</div>
-            <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0">${t('copy')}</button>
+            <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
       </div>
       <div class="flex items-center mt-4 space-x-2">
         <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
-        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled>${t('request_new_otp')}</button>
+        <button id="request-otp-btn-${index}" class="w-full px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
+      </div>
+      <div class="mt-4 pt-4 border-t">
+          <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
+              <li data-translate="instruction_1">${t('instruction_1')}</li>
+              <li data-translate="instruction_2">${t('instruction_2')}</li>
+              <li data-translate="instruction_3">${t('instruction_3')}</li>
+              <li data-translate="instruction_4">${t('instruction_4')}</li>
+          </ul>
       </div>
     `;
     attachCopyHandlers(index);
+  }
+  
+  function setFinalRedeemedUI(index, stateEntry) {
+    const phoneBox = document.getElementById(`phone-box-${index}`);
+    const otpBox = document.getElementById(`otp-box-${index}`);
+    if (phoneBox && stateEntry.phoneNumber) phoneBox.textContent = stateEntry.phoneNumber;
+    if (otpBox && stateEntry.otp) otpBox.textContent = stateEntry.otp;
+
+    const timerEl = document.getElementById(`timer-${index}`);
+    if (timerEl) {
+        timerEl.innerHTML = `<div class="text-center py-2"><span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span></div>`;
+        timerEl.className = '';
+    }
+
+    if (activeTimers[index]) clearInterval(activeTimers[index]);
+    delete activeTimers[index];
+    const timerKey = `get_new_number_${index}`;
+    if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
+    delete activeTimers[timerKey];
+
+    const getNewNumberBtn = document.getElementById(`get-new-number-btn-${index}`);
+    const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
+    const copyPhoneBtn = document.getElementById(`copy-phone-btn-${index}`);
+    const copyOtpBtn = document.getElementById(`copy-otp-btn-${index}`);
+    
+    if (getNewNumberBtn) {
+        getNewNumberBtn.disabled = true;
+        getNewNumberBtn.textContent = t('get_new_number_blocked');
+    }
+    if (requestOtpBtn) {
+        requestOtpBtn.disabled = true;
+        requestOtpBtn.textContent = t('otp_requested');
+    }
+    if (copyPhoneBtn) copyPhoneBtn.disabled = true;
+    if (copyOtpBtn) copyOtpBtn.disabled = true;
   }
 
   async function pollForOtp(orderSn, index, pollingInterval) {
@@ -211,11 +288,7 @@
         stateEntry.otpReceived = true;
         saveOrderState(orderSn, orderState);
         
-        document.getElementById(`otp-box-${index}`).textContent = data.otp;
-        document.getElementById(`request-otp-btn-${index}`).disabled = false; // --- FIX: Enable button
-        document.getElementById(`redeem-btn-${index}`)?.classList.add('hidden');
-        
-        manageGetNewNumberButton(index, stateEntry);
+        setFinalRedeemedUI(index, stateEntry);
 
         await fetch(`${backendUrl}/confirm-redemption`, {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -247,7 +320,6 @@
       const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       requestOtpBtn.disabled = true;
       requestOtpBtn.textContent = t('request_new_otp');
-
 
       try {
         const res = await fetch(`${backendUrl}/get-phone`, {
@@ -350,38 +422,41 @@
   function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
       if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
-      if (!stateEntry.countdownEnd || !stateEntry.getNewNumberAvailableTs) {
-        stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
-        stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
-        saveOrderState(orderSn, orderState);
-      }
-
       redeemBtn.classList.add('hidden');
       const uiContainer = document.getElementById(`redemption-ui-${index}`);
       uiContainer.classList.remove('hidden');
       injectRedemptionUI(uiContainer, index);
       
-      const timerEl = document.getElementById(`timer-${index}`);
-      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageGetNewNumberButton(index, stateEntry));
-      
-      manageGetNewNumberButton(index, stateEntry);
       const itemData = JSON.parse(redeemBtn.dataset.item);
       document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
       document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
+      
+      if (stateEntry.status === 'redeemed') {
+          setFinalRedeemedUI(index, stateEntry);
+          return;
+      }
 
       if (stateEntry.phoneNumber) {
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
       }
+
+      if (!stateEntry.countdownEnd || !stateEntry.getNewNumberAvailableTs) {
+        stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
+        stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
+        saveOrderState(orderSn, orderState);
+      }
+      
+      const timerEl = document.getElementById(`timer-${index}`);
+      startTimer(index, stateEntry.countdownEnd, timerEl, () => manageGetNewNumberButton(index, stateEntry));
+      manageGetNewNumberButton(index, stateEntry);
       
       const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       if (stateEntry.otpReceived) {
-          requestOtpBtn.disabled = false; // Enable if OTP is received
-          
+          requestOtpBtn.disabled = false;
           if (stateEntry.otp) {
               document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
           }
-
-          if (stateEntry.newOtpRequested) { // This check comes after, to override
+          if (stateEntry.newOtpRequested) {
               requestOtpBtn.disabled = true;
               requestOtpBtn.textContent = t('otp_requested');
           }
@@ -417,7 +492,7 @@
 
       statusText.textContent = t('status_ready');
       statusText.className = 'text-green-600 mb-6';
-
+      
       data.items.forEach((item, index) => {
         const productCard = document.createElement('div');
         productCard.className = 'p-4 border rounded-lg bg-gray-50';
@@ -452,4 +527,3 @@
 </script>
 </body>
 </html>
-
