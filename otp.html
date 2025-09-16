@@ -50,7 +50,6 @@
       redeeming_button: "Redeeming...",
       phone_label: "Generated Phone Number",
       otp_label: "Verification Code (OTP)",
-      status_timeout: "Session expired.",
       lang_button: "Bahasa Melayu",
       copy: "Copy",
       copied: "Copied!",
@@ -76,7 +75,6 @@
       redeeming_button: "Menebus...",
       phone_label: "Nombor Telefon Dijana",
       otp_label: "Kod Pengesahan (OTP)",
-      status_timeout: "Sesi telah tamat.",
       lang_button: "English",
       copy: "Salin",
       copied: "Disalin!",
@@ -95,6 +93,7 @@
   };
 
   let currentLang = 'en';
+  let orderViewKey = null; // Variable to store the secure view key
   const activeTimers = {};
 
   function t(key, ...args) {
@@ -110,7 +109,6 @@
     });
     document.getElementById('lang-switcher').textContent = t('lang_button');
 
-    // FIX: Re-translate dynamic content
     const orderSn = getOrderSn();
     const orderState = loadOrderState(orderSn);
     if (orderState.items) {
@@ -171,7 +169,7 @@
     document.getElementById(`copy-phone-btn-${index}`)?.addEventListener('click', e => copyText(document.getElementById(`phone-box-${index}`).textContent, e.target));
     document.getElementById(`copy-otp-btn-${index}`)?.addEventListener('click', e => copyText(document.getElementById(`otp-box-${index}`).textContent, e.target));
   }
-    
+  
   function formatTime(ms) {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
@@ -186,7 +184,7 @@
       if (remaining <= 0) {
         clearInterval(activeTimers[index]);
         delete activeTimers[index];
-        timerEl.textContent = `⏱️ ${t('status_timeout')}`;
+        timerEl.innerHTML = ''; // Hide the timer display
         if (onEnd) onEnd();
       } else {
         timerEl.textContent = `⏱️ ${formatTime(remaining)}`;
@@ -239,7 +237,11 @@
 
     const timerEl = document.getElementById(`timer-${index}`);
     if (timerEl) {
-        timerEl.innerHTML = `<div class="text-center py-2"><span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span></div>`;
+        timerEl.innerHTML = `
+        <div class="text-center py-2">
+          <span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span>
+        </div>
+      `;
         timerEl.className = '';
     }
 
@@ -251,29 +253,23 @@
 
     const getNewNumberBtn = document.getElementById(`get-new-number-btn-${index}`);
     const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
-    const copyPhoneBtn = document.getElementById(`copy-phone-btn-${index}`);
-    const copyOtpBtn = document.getElementById(`copy-otp-btn-${index}`);
     
     if (getNewNumberBtn) {
         getNewNumberBtn.disabled = true;
         getNewNumberBtn.textContent = t('get_new_number_blocked');
     }
     if (requestOtpBtn) {
-        requestOtpBtn.disabled = true;
-        requestOtpBtn.textContent = t('otp_requested');
+        // Keep the button enabled so the user can request another OTP
+        requestOtpBtn.disabled = false;
+        requestOtpBtn.textContent = t('request_new_otp');
     }
-    if (copyPhoneBtn) copyPhoneBtn.disabled = true;
-    if (copyOtpBtn) copyOtpBtn.disabled = true;
+    // Note: We are no longer disabling the copy buttons.
   }
 
   async function pollForOtp(orderSn, index, pollingInterval) {
     const orderState = loadOrderState(orderSn);
     const stateEntry = ensureEntry(orderState, index);
 
-    if (Date.now() > stateEntry.countdownEnd) {
-      clearInterval(pollingInterval);
-      return;
-    }
     try {
       const res = await fetch(`${backendUrl}/check-otp`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -383,18 +379,21 @@
       }
       
       const updateButton = () => {
-          const remaining = stateEntry.getNewNumberAvailableTs - Date.now();
-          if (remaining <= 0) {
-              btn.disabled = false;
-              btn.textContent = t('get_new_number');
-              if (activeTimers[timerKey]) {
-                clearInterval(activeTimers[timerKey]);
-                delete activeTimers[timerKey];
-              }
-          } else {
-              btn.disabled = true;
-              btn.textContent = t('get_new_number_timed', formatTime(remaining));
-          }
+          const mainSessionHasExpired = Date.now() >= (stateEntry.countdownEnd || 0);
+          const changeNumberCooldownPassed = Date.now() >= (stateEntry.getNewNumberAvailableTs || 0);
+
+        if (mainSessionHasExpired || changeNumberCooldownPassed) {
+            btn.disabled = false;
+            btn.textContent = t('get_new_number');
+            if (activeTimers[timerKey]) {
+              clearInterval(activeTimers[timerKey]);
+              delete activeTimers[timerKey];
+            }
+        } else {
+            const remaining = stateEntry.getNewNumberAvailableTs - Date.now();
+            btn.disabled = true;
+            btn.textContent = t('get_new_number_timed', formatTime(remaining));
+        }
       };
       updateButton();
       activeTimers[timerKey] = setInterval(updateButton, 1000);
@@ -465,8 +464,57 @@
       }
   }
 
+  async function renderReadOnlyView(viewKey) {
+    document.getElementById('lang-switcher').classList.add('hidden');
+    const statusText = document.getElementById('status-text');
+    const productsContainer = document.getElementById('products-container');
+
+    try {
+      statusText.textContent = t('status_fetching');
+
+      const res = await fetch(`${backendUrl}/get-redemption`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewKey })
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Could not load redemption details.');
+      }
+
+      document.getElementById('order-sn-display').textContent = data.order_sn;
+      document.getElementById('order-details-container').classList.remove('hidden');
+      statusText.textContent = "Viewing your completed redemption.";
+      statusText.className = 'text-gray-600 mb-6';
+      
+      productsContainer.innerHTML = '';
+      data.items.forEach(item => {
+        const itemCard = document.createElement('div');
+        itemCard.className = 'p-4 border rounded-lg bg-gray-50';
+        itemCard.innerHTML = `
+          <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
+          <div class="mt-3 space-y-2 text-sm">
+            <p><strong>Phone:</strong> <span class="font-mono text-gray-700">${item.phoneNumber || 'N/A'}</span></p>
+            <p><strong>OTP Code:</strong> <span class="font-mono text-gray-700">${item.otp || 'N/A'}</span></p>
+          </div>
+        `;
+        productsContainer.appendChild(itemCard);
+      });
+
+    } catch (error) {
+      statusText.textContent = `❌ Error: ${error.message}`;
+      statusText.className = 'text-red-600 mb-6';
+    }
+  }
+
   async function boot() {
     document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
+    
+    const viewKey = getQS('viewKey');
+    if (viewKey) {
+      return renderReadOnlyView(viewKey);
+    }
+    
     setLanguage('en');
 
     const statusText = document.getElementById('status-text');
@@ -489,7 +537,8 @@
       if (!res.ok) throw new Error(`Server Error: ${res.status}`);
       const data = await res.json();
       if (!data.success || !data.items || data.items.length === 0) throw new Error(data.message || "No items found.");
-
+      
+      orderViewKey = data.viewKey; // Save the viewKey
       statusText.textContent = t('status_ready');
       statusText.className = 'text-green-600 mb-6';
       
