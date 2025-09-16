@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Voucher Redemption - HavicBot</title>
-  <script src="https://cdn-tailwindcss.vercel.app/"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -37,7 +37,8 @@
   const backendUrl = "https://havicbot-backend.onrender.com";
   const MAIN_TIMER_DURATION = 10 * 60 * 1000;
   const CHANGE_NUMBER_DELAY = 5 * 60 * 1000;
-  const CHANGE_NUMBER_MAX_ATTEMPTS = 2;
+  // NOTE: The maximum attempts logic is being removed in this patch.
+  const CHANGE_NUMBER_MAX_ATTEMPTS = 999; // Set to a high number to effectively disable the limit
 
   const translations = {
     en: {
@@ -174,7 +175,6 @@
       if(redeemBtn) redeemBtn.classList.remove('hidden');
   }
 
-  // MODIFIED: This function now enables the "Request New OTP" button on expiry
   function startItemTimer(index, countdownEnd) {
     const timerKey = `main_timer_${index}`;
     if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
@@ -190,8 +190,7 @@
         if(remaining <= 0) {
             clearInterval(activeTimers[timerKey]);
             delete activeTimers[timerKey];
-            timerEl.textContent = ''; // Clear timer text
-            // Enable the 'Request New OTP' button as a fallback
+            timerEl.textContent = '';
             const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
             if(requestOtpBtn) requestOtpBtn.disabled = false;
         } else {
@@ -202,7 +201,6 @@
     activeTimers[timerKey] = setInterval(update, 1000);
   }
 
-  // MODIFIED: Timer is in the button, layout is responsive
   function injectRedemptionUI(container, index) {
     container.innerHTML = `
       <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-sm font-semibold text-gray-700"></div></div>
@@ -297,7 +295,8 @@
   async function requestAndFetchPhoneNumber(orderSn, item, index) {
       const orderState = loadOrderState(orderSn);
       const stateEntry = ensureEntry(orderState, index);
-      if ((stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS || stateEntry.otpReceived) return;
+      // MODIFIED: Removed max attempts check
+      if (stateEntry.otpReceived) return;
 
       stateEntry.getNewNumberCount = (stateEntry.getNewNumberCount || 0) + 1;
       stateEntry.getNewNumberAvailableTs = Date.now() + CHANGE_NUMBER_DELAY;
@@ -329,8 +328,7 @@
         saveOrderState(orderSn, orderState);
 
         phoneBox.textContent = data.phoneNumber;
-        // Enable request OTP button after phone number is received
-        if (requestOtpBtn) requestOtpBtn.disabled = false; 
+        if (requestOtpBtn) requestOtpBtn.disabled = false;
         const pollingInterval = setInterval(() => pollForOtp(orderSn, index, pollingInterval), 5000);
       } catch (error) {
           console.error("Fetch Phone Error:", error);
@@ -362,7 +360,7 @@
       }
   }
     
-  // MODIFIED: Timer is now inside the button text
+  // MODIFIED: Removed max attempts check
   function manageGetNewNumberButton(index, stateEntry) {
       const btn = document.getElementById(`get-new-number-btn-${index}`);
       if (!btn) return;
@@ -370,7 +368,7 @@
 
       if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
 
-      if (stateEntry.otpReceived || (stateEntry.getNewNumberCount || 0) >= CHANGE_NUMBER_MAX_ATTEMPTS) {
+      if (stateEntry.otpReceived) {
           btn.disabled = true;
           btn.textContent = t('get_new_number_blocked');
           return;
@@ -446,7 +444,6 @@
 
       if (stateEntry.phoneNumber) {
         document.getElementById(`phone-box-${index}`).textContent = stateEntry.phoneNumber;
-        // If phone number exists, 'Request New OTP' should be enabled
         const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
         if(requestOtpBtn) requestOtpBtn.disabled = false;
       }
