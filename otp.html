@@ -230,40 +230,23 @@
   }
   
   function setFinalRedeemedUI(index, stateEntry) {
-    const phoneBox = document.getElementById(`phone-box-${index}`);
-    const otpBox = document.getElementById(`otp-box-${index}`);
-    if (phoneBox && stateEntry.phoneNumber) phoneBox.textContent = stateEntry.phoneNumber;
-    if (otpBox && stateEntry.otp) otpBox.textContent = stateEntry.otp;
+    const uiContainer = document.getElementById(`redemption-ui-${index}`);
+    if (!uiContainer) return;
 
-    const timerEl = document.getElementById(`timer-${index}`);
-    if (timerEl) {
-        timerEl.innerHTML = `
-        <div class="text-center py-2">
+    // Build the final, static HTML card for the redeemed item
+    const finalHtml = `
+      <div class="text-center py-2 mb-3">
           <span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span>
-        </div>
-      `;
-        timerEl.className = '';
-    }
+      </div>
+      <div class="space-y-2 text-sm text-left">
+          <p><strong>${t('phone_label')}:</strong> <span class="font-mono text-gray-700">${stateEntry.phoneNumber || 'N/A'}</span></p>
+          <p><strong>${t('otp_label')}:</strong> <span class="font-mono text-gray-700">${stateEntry.otp || 'N/A'}</span></p>
+      </div>
+    `;
 
-    if (activeTimers[index]) clearInterval(activeTimers[index]);
-    delete activeTimers[index];
-    const timerKey = `get_new_number_${index}`;
-    if (activeTimers[timerKey]) clearInterval(activeTimers[timerKey]);
-    delete activeTimers[timerKey];
-
-    const getNewNumberBtn = document.getElementById(`get-new-number-btn-${index}`);
-    const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
-    
-    if (getNewNumberBtn) {
-        getNewNumberBtn.disabled = true;
-        getNewNumberBtn.textContent = t('get_new_number_blocked');
-    }
-    if (requestOtpBtn) {
-        // Keep the button enabled so the user can request another OTP
-        requestOtpBtn.disabled = false;
-        requestOtpBtn.textContent = t('request_new_otp');
-    }
-    // Note: We are no longer disabling the copy buttons.
+    // Replace the entire interactive UI with the static card
+    uiContainer.innerHTML = finalHtml;
+    uiContainer.className = 'mt-4 pt-4 border-t border-gray-200'; // Reset class to default
   }
 
   async function pollForOtp(orderSn, index, pollingInterval) {
