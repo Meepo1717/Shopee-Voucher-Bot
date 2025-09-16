@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; }
-    /* NEW: CSS for the bouncing dot animation */
     .bouncing-loader {
         display: flex;
         justify-content: center;
@@ -184,7 +184,15 @@
     return `${minutes}:${seconds}`;
   }
   
-  // NEW: Helper function to show the bouncing loader
+  // NEW: Helper function to get today's date for instructions
+  function getFormattedDate() {
+      const today = new Date();
+      const day = today.getDate();
+      const year = today.getFullYear();
+      const month = today.toLocaleString('default', { month: 'short' });
+      return `${day} ${month} ${year}`;
+  }
+  
   function showBouncingLoader(element) {
     if(element) {
         element.innerHTML = '<div class="bouncing-loader"><div></div><div></div><div></div></div>';
@@ -236,7 +244,9 @@
     activeTimers[timerKey] = setInterval(update, 1000);
   }
 
+  // MODIFIED: Added new detailed instructions section
   function injectRedemptionUI(container, index) {
+    const todayDate = getFormattedDate(); // Get today's date for instructions
     container.innerHTML = `
       <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-sm font-semibold text-gray-700"></div></div>
       
@@ -269,6 +279,46 @@
               <li data-translate="instruction_3">${t('instruction_3')}</li>
               <li data-translate="instruction_4">${t('instruction_4')}</li>
           </ul>
+
+          <hr class="my-3 border-gray-200">
+          <div class="text-xs text-gray-600">
+              <p class="font-medium text-gray-800 mb-2">Here’s a simplified, clean version of your instructions:</p>
+              <div class="space-y-3">
+                  <div>
+                      <h4 class="font-semibold text-gray-900">☕ How to Claim ZUS Coffee Voucher</h4>
+                      <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
+                          <li>📱 Register in the ZUS app using the generated phone number.</li>
+                          <li>✅ Verify via SMS.</li>
+                          <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
+                          <li>⚠️ Skip referral code.</li>
+                          <li>🎟️ Go to My Account → My Vouchers → Active.</li>
+                          <li>🔑 Enter code: BUY1FREE1 🎉</li>
+                          <li>🎂 For Birthday, use today’s date (e.g. if today = ${todayDate}, put ${todayDate}).</li>
+                          <li>📩 Birthday Cake Voucher will arrive the next day.</li>
+                          <li>👆 Enable Biometrics (fingerprint/face) to stay logged in.</li>
+                      </ul>
+                  </div>
+                  <div>
+                      <h4 class="font-semibold text-gray-900">🍗 How to Claim KFC Voucher</h4>
+                      <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
+                          <li>📱 Sign up with the generated phone number.</li>
+                          <li>✅ Verify via SMS.</li>
+                          <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
+                          <li>🎂 For Birthday, use today’s date (e.g. if today = ${todayDate}, put ${todayDate}).</li>
+                          <li>🎟️ Go to Promotions to claim vouchers.</li>
+                      </ul>
+                  </div>
+                  <div>
+                      <h4 class="font-semibold text-gray-900">🍔 How to Claim MarryBrown Voucher</h4>
+                      <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
+                          <li>📱 Sign up with the generated phone number.</li>
+                          <li>✅ Verify via SMS.</li>
+                          <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
+                          <li>🎂 For Birthday, use today’s date (e.g. if today = ${todayDate}, put ${todayDate}).</li>
+                      </ul>
+                  </div>
+              </div>
+          </div>
       </div>
     `;
     attachCopyHandlers(index);
@@ -350,7 +400,7 @@
       const phoneBox = document.getElementById(`phone-box-${index}`);
       const otpBox = document.getElementById(`otp-box-${index}`);
       phoneBox.textContent = t('redeeming_button');
-      showBouncingLoader(otpBox); // MODIFIED: Show loader
+      showBouncingLoader(otpBox);
       
       const requestOtpBtn = document.getElementById(`request-otp-btn-${index}`);
       requestOtpBtn.disabled = true;
@@ -377,7 +427,7 @@
       } catch (error) {
           console.error("Fetch Phone Error:", error);
           phoneBox.textContent = `❌ ${error.message}`;
-          otpBox.textContent = '...'; // Reset on error
+          otpBox.textContent = '...';
       }
   }
     
@@ -392,7 +442,7 @@
       saveOrderState(orderSn, orderState);
       
       const otpBox = document.getElementById(`otp-box-${index}`);
-      showBouncingLoader(otpBox); // MODIFIED: Show loader
+      showBouncingLoader(otpBox);
 
       try {
           await fetch(`${backendUrl}/request-another-otp`, {
@@ -402,7 +452,7 @@
           const pollingInterval = setInterval(() => pollForOtp(orderSn, index, pollingInterval), 5000);
       } catch(e) {
           console.error("Request New OTP Error:", e);
-          otpBox.textContent = '...'; // Reset on error
+          otpBox.textContent = '...';
       } finally {
           updateRequestOtpButton(index, stateEntry);
       }
