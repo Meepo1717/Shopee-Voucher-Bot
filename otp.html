@@ -13,20 +13,20 @@
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
   <div class="absolute top-4 right-4">
-    <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200 text-sm">
+    <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
       Bahasa Melayu
     </button>
   </div>
 
-  <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-6">
+  <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
     <div class="text-center">
-      <h1 class="text-xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
-      <p class="text-blue-600 mb-4" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
+      <h1 class="text-3xl font-bold mb-2" style="color:#EE4D2D;" data-translate="title">Voucher Redemption</h1>
+      <p class="text-blue-600 mb-6" id="status-text" data-translate="status_fetching">Fetching your order details...</p>
     </div>
 
     <div id="order-details-container" class="hidden text-left mb-4 border-b pb-4">
-      <p class="text-xs text-gray-600" data-translate="order_sn_label">Order SN</p>
-      <h2 id="order-sn-display" class="text-lg font-semibold text-gray-800"></h2>
+      <p class="text-sm text-gray-600" data-translate="order_sn_label">Order SN</p>
+      <h2 id="order-sn-display" class="text-xl font-semibold text-gray-800"></h2>
     </div>
 
     <div id="products-container" class="space-y-4"></div>
@@ -198,29 +198,29 @@
 
   function injectRedemptionUI(container, index) {
     container.innerHTML = `
-      <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-sm font-semibold text-gray-700"></div></div>
-      <div class="space-y-3">
+      <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-lg font-semibold text-gray-700"></div></div>
+      <div class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="phone_label">${t('phone_label')}</label>
           <div class="flex items-center">
-            <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 text-center text-sm">...</div>
-            <button id="copy-phone-btn-${index}" class="px-3 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0 text-sm" data-translate="copy">${t('copy')}</button>
+            <div id="phone-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 text-center text-lg">...</div>
+            <button id="copy-phone-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1" data-translate="otp_label">${t('otp_label')}</label>
           <div class="flex items-center">
-            <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 text-center text-sm">...</div>
-            <button id="copy-otp-btn-${index}" class="px-3 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0 text-sm" data-translate="copy">${t('copy')}</button>
+            <div id="otp-box-${index}" class="w-full border rounded-l-lg px-3 py-2 bg-gray-100 text-center text-lg">...</div>
+            <button id="copy-otp-btn-${index}" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-r-lg hover:bg-gray-300 border border-l-0" data-translate="copy">${t('copy')}</button>
           </div>
         </div>
       </div>
-      <div class="flex items-center mt-3 space-x-2">
+      <div class="flex items-center mt-4 space-x-2">
         <div class="w-1/2 flex items-center">
-            <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition text-sm"></button>
-            <span id="get-new-number-timer-${index}" class="ml-2 text-gray-600 w-16 text-center text-sm"></span>
+          <button id="get-new-number-btn-${index}" class="w-full px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"></button>
+          <span id="get-new-number-timer-${index}" class="ml-2 text-gray-600 w-16 text-center"></span>
         </div>
-        <button id="request-otp-btn-${index}" class="w-1/2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition text-sm" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
+        <button id="request-otp-btn-${index}" class="w-1/2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
       </div>
       <div class="mt-4 pt-4 border-t">
           <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
@@ -245,9 +245,9 @@
     if (!uiContainer) return;
     const finalHtml = `
       <div class="text-center py-2 mb-3">
-          <span class="text-green-600 font-bold text-sm">${t('voucher_redeemed_successfully')}</span>
+          <span class="text-green-600 font-bold text-lg">${t('voucher_redeemed_successfully')}</span>
       </div>
-      <div class="space-y-2 text-xs text-left">
+      <div class="space-y-2 text-sm text-left">
           <p><strong>${t('phone_label')}:</strong> <span class="text-gray-700">${stateEntry.phoneNumber || 'N/A'}</span></p>
           <p><strong>${t('otp_label')}:</strong> <span class="text-gray-700">${stateEntry.otp || 'N/A'}</span></p>
       </div>
@@ -382,12 +382,8 @@
         } else {
             const remaining = stateEntry.getNewNumberAvailableTs - Date.now();
             btn.disabled = true;
-            if (timerEl) {
-                timerEl.textContent = `(${formatTime(remaining)})`;
-                btn.textContent = t('get_new_number');
-            } else { // Fallback if span is missing
-                btn.textContent = t('get_new_number_timed', formatTime(remaining));
-            }
+            btn.textContent = t('get_new_number');
+            if (timerEl) timerEl.textContent = `(${formatTime(remaining)})`;
         }
       };
       updateButton();
@@ -481,21 +477,18 @@
         throw new Error(data.message || 'Could not load redemption details.');
       }
 
-      // Font size reduced
-      document.querySelector('h1[data-translate="title"]').className = 'text-xl font-bold mb-2';
-      statusText.className = 'text-gray-600 mb-4';
-      
       document.getElementById('order-sn-display').textContent = data.order_sn;
       document.getElementById('order-details-container').classList.remove('hidden');
       statusText.textContent = "Viewing your completed redemption.";
+      statusText.className = 'text-gray-600 mb-6';
       
       productsContainer.innerHTML = '';
       data.items.forEach(item => {
         const itemCard = document.createElement('div');
         itemCard.className = 'p-4 border rounded-lg bg-gray-50';
         itemCard.innerHTML = `
-          <h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>
-          <div class="mt-3 space-y-2 text-xs">
+          <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
+          <div class="mt-3 space-y-2 text-sm">
             <p><strong>Phone:</strong> <span class="text-gray-700">${item.phoneNumber || 'N/A'}</span></p>
             <p><strong>OTP Code:</strong> <span class="text-gray-700">${item.otp || 'N/A'}</span></p>
           </div>
@@ -505,7 +498,7 @@
 
     } catch (error) {
       statusText.textContent = `❌ Error: ${error.message}`;
-      statusText.className = 'text-red-600 mb-4';
+      statusText.className = 'text-red-600 mb-6';
     }
   }
 
@@ -542,15 +535,15 @@
       
       orderViewKey = data.viewKey;
       statusText.textContent = t('status_ready');
-      statusText.className = 'text-green-600 mb-4';
+      statusText.className = 'text-green-600 mb-6';
       
       data.items.forEach((item, index) => {
         const productCard = document.createElement('div');
         productCard.className = 'p-4 border rounded-lg bg-gray-50';
         productCard.innerHTML = `
           <div class="flex justify-between items-center">
-            <h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>
-            <button id="redeem-btn-${index}" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-28 text-sm" data-item='${JSON.stringify(item)}'>
+            <h3 class="text-lg font-semibold text-gray-800">${item.name}</h3>
+            <button id="redeem-btn-${index}" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-32" data-item='${JSON.stringify(item)}'>
               ${t('redeem_button')}
             </button>
           </div>
@@ -568,7 +561,7 @@
     } catch (error) {
       console.error("Boot Error:", error);
       statusText.textContent = `❌ ${t('status_failed_fetch')} (${error.message})`;
-      statusText.className = 'text-red-600 mb-4';
+      statusText.className = 'text-red-600 mb-6';
     }
   }
 
