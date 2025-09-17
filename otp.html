@@ -339,6 +339,15 @@
   }
 
   function setFinalRedeemedUI(index, stateEntry) {
+    // --- START: ADD THIS CODE ---
+    // Clear the timer for the 'Get New Number' button to prevent it from re-enabling
+    const getNewNumberTimerKey = `get_new_number_${index}`;
+    if (activeTimers[getNewNumberTimerKey]) {
+        clearInterval(activeTimers[getNewNumberTimerKey]);
+        delete activeTimers[getNewNumberTimerKey];
+    }
+    // --- END: ADD THIS CODE ---
+
     const timerKey = `main_timer_${index}`;
     if (activeTimers[timerKey]) {
         clearInterval(activeTimers[timerKey]);
