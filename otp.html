@@ -207,6 +207,7 @@
         stateEntry.countdownEnd = null;
         stateEntry.getNewNumberCount = 0;
         stateEntry.requestOtpCount = 0;
+        stateEntry.getNewNumberAvailableTs = null; // Also clear the timer timestamp
         saveOrderState(orderSn, orderState);
 
         const uiContainer = document.getElementById(`redemption-ui-${index}`);
@@ -525,7 +526,7 @@
 
         if(redeemBtn) redeemBtn.classList.add('hidden');
         const uiContainer = document.getElementById(`redemption-ui-${index}`);
-        uiContainer.classList.remove('hidden');
+        if (uiContainer) uiContainer.classList.remove('hidden');
         injectRedemptionUI(uiContainer, index);
         
         if (stateEntry.countdownEnd) {
@@ -603,10 +604,17 @@
                 const productsContainer = document.getElementById('products-container');
                 productsContainer.innerHTML = '';
 
-                const initialState = { items: data.items };
-                saveOrderState(orderSn, initialState);
+                // FIX: Merge backend state with local state instead of overwriting
+                const localState = loadOrderState(orderSn);
+                data.items.forEach((backendItem, index) => {
+                    const localItem = ensureEntry(localState, index);
+                    // Backend data is the source of truth for status, but we preserve local UI state like timers
+                    const mergedItem = { ...localItem, ...backendItem };
+                    localState.items[index] = mergedItem;
+                });
+                saveOrderState(orderSn, localState);
 
-                data.items.forEach((item, index) => {
+                localState.items.forEach((item, index) => {
                     const productCard = document.createElement('div');
                     productCard.className = 'p-4 border rounded-lg bg-gray-50';
                     
@@ -622,8 +630,7 @@
                     productsContainer.appendChild(productCard);
 
                     const redeemBtn = document.getElementById(`redeem-btn-${index}`);
-                    const orderState = loadOrderState(orderSn);
-                    const stateEntry = ensureEntry(orderState, index);
+                    const stateEntry = item; // Use the merged item state
 
                     if (item.status === 'idle') {
                         redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn));
