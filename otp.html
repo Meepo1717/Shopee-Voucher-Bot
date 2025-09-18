@@ -182,7 +182,6 @@
         return `${minutes}:${seconds}`;
     }
     
-    // NEW: Helper function to get today's date for instructions
     function getFormattedDate() {
         const today = new Date();
         const day = today.getDate();
@@ -242,9 +241,8 @@
         activeTimers[timerKey] = setInterval(update, 1000);
     }
 
-    // MODIFIED: Added new detailed instructions section
     function injectRedemptionUI(container, index) {
-        const todayDate = getFormattedDate(); // Get today's date for instructions
+        const todayDate = getFormattedDate();
         container.innerHTML = `
             <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-sm font-semibold text-gray-700"></div></div>
             
@@ -336,14 +334,11 @@
     }
 
     function setFinalRedeemedUI(index, stateEntry) {
-        // --- START: ADD THIS CODE ---
-        // Clear the timer for the 'Get New Number' button to prevent it from re-enabling
         const getNewNumberTimerKey = `get_new_number_${index}`;
         if (activeTimers[getNewNumberTimerKey]) {
             clearInterval(activeTimers[getNewNumberTimerKey]);
             delete activeTimers[getNewNumberTimerKey];
         }
-        // --- END: ADD THIS CODE ---
 
         const timerKey = `main_timer_${index}`;
         if (activeTimers[timerKey]) {
@@ -382,7 +377,7 @@
             if (data.otp) {
                 clearInterval(pollingInterval);
                 stateEntry.otp = data.otp;
-                stateEntry.status = 'pending_otp';
+                stateEntry.status = 'redeemed'; // Use a consistent status name
                 stateEntry.otpReceived = true;
                 saveOrderState(orderSn, orderState);
                 
@@ -520,7 +515,8 @@
         requestAndFetchPhoneNumber(orderSn, item, index);
     }
     
-    function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState) {
+    // This function is now only for in-session updates, not initial render.
+    function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn) {
         if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
         if (stateEntry.countdownEnd && Date.now() >= stateEntry.countdownEnd) {
@@ -541,7 +537,7 @@
         document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
         document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
         
-        if (stateEntry.status === 'pending_otp') {
+        if (stateEntry.status === 'redeemed') { // Changed from pending_otp
             setFinalRedeemedUI(index, stateEntry);
         }
 
@@ -568,12 +564,10 @@
 
     async function boot() {
         document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
-        
         setLanguage('en');
 
         const statusText = document.getElementById('status-text');
         const orderSn = getOrderSn();
-        const orderState = loadOrderState(orderSn);
 
         if (!orderSn) {
             statusText.textContent = "No Order ID found in URL.";
@@ -592,8 +586,9 @@
             const data = await res.json();
             if (!data.success || !data.items || data.items.length === 0) throw new Error(data.message || "No items found.");
             
+            // --- NEW: Simplified Boot Logic ---
             if (data.isReadOnly) {
-                // --- RENDER READ-ONLY VIEW ---
+                // RENDER PERMANENT READ-ONLY VIEW
                 document.getElementById('lang-switcher').classList.add('hidden');
                 statusText.textContent = "Viewing your completed redemption.";
                 statusText.className = 'text-gray-600 mb-4';
@@ -602,36 +597,44 @@
                 data.items.forEach(item => {
                     const itemCard = document.createElement('div');
                     itemCard.className = 'p-4 border rounded-lg bg-gray-50';
-                    itemCard.innerHTML = `
-                        <h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>
-                        <div class="mt-3 space-y-2 text-xs">
-                            <p><strong>Phone:</strong> <span class="font-mono text-gray-700">${item.phoneNumber}</span></p>
-                            <p><strong>OTP Code:</strong> <span class="font-mono text-gray-700">${item.otp}</span></p>
-                        </div>
-                    `;
+                    itemCard.innerHTML = `<h3 class="text-sm font-semibold text-gray-800">${item.name}</h3><div class="mt-3 space-y-2 text-xs"><p><strong>Phone:</strong> <span class="font-mono text-gray-700">${item.phoneNumber}</span></p><p><strong>OTP Code:</strong> <span class="font-mono text-gray-700">${item.otp}</span></p></div>`;
                     productsContainer.appendChild(itemCard);
                 });
             } else {
-                // --- RENDER INTERACTIVE VIEW ---
+                // RENDER INTERACTIVE VIEW (using status from backend)
                 statusText.textContent = t('status_ready');
                 statusText.className = 'text-green-600 mb-4';
+                const productsContainer = document.getElementById('products-container');
+                productsContainer.innerHTML = ''; // Clear previous content
+
+                // Save the backend state to local storage to sync it
+                const initialState = { items: data.items };
+                saveOrderState(orderSn, initialState);
+
                 data.items.forEach((item, index) => {
                     const productCard = document.createElement('div');
                     productCard.className = 'p-4 border rounded-lg bg-gray-50';
-                    productCard.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>
-                            <button id="redeem-btn-${index}" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-28 text-sm" data-item='${JSON.stringify(item)}'>
-                                ${t('redeem_button')}
-                            </button>
-                        </div>
-                        <div id="redemption-ui-${index}" class="mt-4 pt-4 border-t border-gray-200 hidden"></div>
-                    `;
-                    document.getElementById('products-container').appendChild(productCard);
-                    const redeemBtn = document.getElementById(`redeem-btn-${index}`);
-                    redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn));
-                    const stateEntry = ensureEntry(orderState, index);
-                    restoreVoucherUI(orderSn, index, stateEntry, redeemBtn, orderState);
+                    
+                    let content = `<div class="flex justify-between items-center"><h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>`;
+                    
+                    if (item.status === 'idle') {
+                        content += `<button id="redeem-btn-${index}" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-28 text-sm" data-item='${JSON.stringify(item)}'>${t('redeem_button')}</button>`;
+                    }
+                    
+                    content += `</div><div id="redemption-ui-${index}" class="mt-4 pt-4 border-t border-gray-200 ${item.status === 'idle' ? 'hidden' : ''}"></div>`;
+                    productCard.innerHTML = content;
+                    productsContainer.appendChild(productCard);
+
+                    if (item.status === 'idle') {
+                        const redeemBtn = document.getElementById(`redeem-btn-${index}`);
+                        redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn));
+                    } else {
+                        // If not idle, immediately show the redemption UI with its correct state
+                        const orderState = loadOrderState(orderSn);
+                        const stateEntry = ensureEntry(orderState, index);
+                        const redeemBtn = { dataset: { item: JSON.stringify(item) } }; // Mock button for restoreVoucherUI
+                        restoreVoucherUI(orderSn, index, stateEntry, redeemBtn);
+                    }
                 });
             }
 
