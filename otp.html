@@ -377,7 +377,7 @@
             if (data.otp) {
                 clearInterval(pollingInterval);
                 stateEntry.otp = data.otp;
-                stateEntry.status = 'redeemed'; // Use a consistent status name
+                stateEntry.status = 'redeemed';
                 stateEntry.otpReceived = true;
                 saveOrderState(orderSn, orderState);
                 
@@ -515,7 +515,6 @@
         requestAndFetchPhoneNumber(orderSn, item, index);
     }
     
-    // This function is now only for in-session updates, not initial render.
     function restoreVoucherUI(orderSn, index, stateEntry, redeemBtn) {
         if (!stateEntry || !stateEntry.status || stateEntry.status === 'idle') return;
 
@@ -524,7 +523,7 @@
             return;
         }
 
-        redeemBtn.classList.add('hidden');
+        if(redeemBtn) redeemBtn.classList.add('hidden');
         const uiContainer = document.getElementById(`redemption-ui-${index}`);
         uiContainer.classList.remove('hidden');
         injectRedemptionUI(uiContainer, index);
@@ -537,7 +536,7 @@
         document.getElementById(`get-new-number-btn-${index}`).onclick = () => requestAndFetchPhoneNumber(orderSn, itemData, index);
         document.getElementById(`request-otp-btn-${index}`).onclick = () => requestAnotherOtp(orderSn, index);
         
-        if (stateEntry.status === 'redeemed') { // Changed from pending_otp
+        if (stateEntry.status === 'redeemed') {
             setFinalRedeemedUI(index, stateEntry);
         }
 
@@ -586,9 +585,7 @@
             const data = await res.json();
             if (!data.success || !data.items || data.items.length === 0) throw new Error(data.message || "No items found.");
             
-            // --- NEW: Simplified Boot Logic ---
             if (data.isReadOnly) {
-                // RENDER PERMANENT READ-ONLY VIEW
                 document.getElementById('lang-switcher').classList.add('hidden');
                 statusText.textContent = "Viewing your completed redemption.";
                 statusText.className = 'text-gray-600 mb-4';
@@ -601,13 +598,11 @@
                     productsContainer.appendChild(itemCard);
                 });
             } else {
-                // RENDER INTERACTIVE VIEW (using status from backend)
                 statusText.textContent = t('status_ready');
                 statusText.className = 'text-green-600 mb-4';
                 const productsContainer = document.getElementById('products-container');
-                productsContainer.innerHTML = ''; // Clear previous content
+                productsContainer.innerHTML = '';
 
-                // Save the backend state to local storage to sync it
                 const initialState = { items: data.items };
                 saveOrderState(orderSn, initialState);
 
@@ -615,24 +610,24 @@
                     const productCard = document.createElement('div');
                     productCard.className = 'p-4 border rounded-lg bg-gray-50';
                     
-                    let content = `<div class="flex justify-between items-center"><h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>`;
-                    
-                    if (item.status === 'idle') {
-                        content += `<button id="redeem-btn-${index}" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-28 text-sm" data-item='${JSON.stringify(item)}'>${t('redeem_button')}</button>`;
-                    }
-                    
-                    content += `</div><div id="redemption-ui-${index}" class="mt-4 pt-4 border-t border-gray-200 ${item.status === 'idle' ? 'hidden' : ''}"></div>`;
-                    productCard.innerHTML = content;
+                    productCard.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-sm font-semibold text-gray-800">${item.name}</h3>
+                            <button id="redeem-btn-${index}" class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition w-28 text-sm" data-item='${JSON.stringify(item)}'>
+                                ${t('redeem_button')}
+                            </button>
+                        </div>
+                        <div id="redemption-ui-${index}" class="mt-4 pt-4 border-t border-gray-200 hidden"></div>
+                    `;
                     productsContainer.appendChild(productCard);
 
+                    const redeemBtn = document.getElementById(`redeem-btn-${index}`);
+                    const orderState = loadOrderState(orderSn);
+                    const stateEntry = ensureEntry(orderState, index);
+
                     if (item.status === 'idle') {
-                        const redeemBtn = document.getElementById(`redeem-btn-${index}`);
                         redeemBtn.addEventListener('click', () => startRedemptionProcess(orderSn, item, index, redeemBtn));
                     } else {
-                        // If not idle, immediately show the redemption UI with its correct state
-                        const orderState = loadOrderState(orderSn);
-                        const stateEntry = ensureEntry(orderState, index);
-                        const redeemBtn = { dataset: { item: JSON.stringify(item) } }; // Mock button for restoreVoucherUI
                         restoreVoucherUI(orderSn, index, stateEntry, redeemBtn);
                     }
                 });
