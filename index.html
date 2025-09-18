@@ -1,176 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Verify Order - HavicBot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>body{font-family:'Inter',sans-serif}</style>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Verify Order - HavicBot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body{font-family:'Inter',sans-serif}</style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-  <!-- Language Switcher -->
-  <div class="absolute top-4 right-4">
-    <button id="lang-switcher" 
-            class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
-      Bahasa Melayu
-    </button>
-  </div>
-
-  <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
-    <h1 id="title" class="text-2xl font-bold mb-4" style="color:#EE4D2D;">Order Verification</h1>
-
-    <!-- Order ID Input -->
-    <label id="order-label" class="block text-sm font-medium text-gray-700 mb-2">Enter Order ID</label>
-    <input id="order-sn" class="w-full border rounded-lg px-3 py-3 outline-none focus:ring-2 focus:ring-blue-500"
-           placeholder="e.g. 25090933MKRPF1"/>
-
-    <button id="verify-btn"
-            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition">
-      Verify & Continue
-    </button>
-
-    <div id="note" class="text-xs text-gray-500 mt-3">
-      We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.
+    <div class="absolute top-4 right-4">
+        <button id="lang-switcher"
+                class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200">
+            Bahasa Melayu
+        </button>
     </div>
 
-    <div id="status" class="mt-4 hidden"></div>
+    <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
+        <h1 id="title" class="text-2xl font-bold mb-4" style="color:#EE4D2D;">Order Verification</h1>
 
-    <!-- Help Section with Image -->
-    <div class="mt-8">
-      <h2 id="help-title" class="text-md font-semibold text-gray-700 mb-2">Where to find Order ID</h2>
-      <ol id="help-steps" class="list-decimal ms-5 space-y-1 text-sm text-gray-600">
-        <li>Open the Shopee app ➜ <b>Me</b>.</li>
-        <li>Tap <b>Purchases</b> and select the order.</li>
-        <li>Scroll to <b>Order ID</b> and tap <b>Copy</b>.</li>
-      </ol>
+        <label id="order-label" class="block text-sm font-medium text-gray-700 mb-2">Enter Order ID</label>
+        <input id="order-sn" class="w-full border rounded-lg px-3 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+               placeholder="e.g. 25090933MKRPF1"/>
 
-      <!-- Direct image from GitHub user-attachments -->
-      <img src="https://github.com/user-attachments/assets/0c2d61bf-5afe-4ad0-93e9-cb59c665184e"
-           alt="Where to find Order ID"
-           class="mt-3 rounded-lg border shadow-md">
+        <button id="verify-btn"
+                class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition">
+            Verify & Continue
+        </button>
+
+        <div id="note" class="text-xs text-gray-500 mt-3">
+            We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.
+        </div>
+
+        <div id="status" class="mt-4 hidden"></div>
+
+        <div class="mt-8">
+            <h2 id="help-title" class="text-md font-semibold text-gray-700 mb-2">Where to find Order ID</h2>
+            <ol id="help-steps" class="list-decimal ms-5 space-y-1 text-sm text-gray-600">
+                <li>Open the Shopee app ➜ <b>Me</b>.</li>
+                <li>Tap <b>Purchases</b> and select the order.</li>
+                <li>Scroll to <b>Order ID</b> and tap <b>Copy</b>.</li>
+            </ol>
+
+            <img src="https://github.com/user-attachments/assets/0c2d61bf-5afe-4ad0-93e9-cb59c665184e"
+                 alt="Where to find Order ID"
+                 class="mt-3 rounded-lg border shadow-md">
+        </div>
     </div>
-  </div>
 
-  <script>
-  (function(){
-    var backendUrl = "https://havicbot-backend.onrender.com";
-    var input = document.getElementById('order-sn');
-    var btn   = document.getElementById('verify-btn');
-    var statusEl = document.getElementById('status');
+    <script>
+    (function(){
+        var backendUrl = "https://havicbot-backend.onrender.com";
+        var input = document.getElementById('order-sn');
+        var btn   = document.getElementById('verify-btn');
+        var statusEl = document.getElementById('status');
 
-    // Translations
-    var translations = {
-      en: {
-        title: "Order Verification",
-        orderLabel: "Enter Order ID",
-        verifyBtn: "Verify & Continue",
-        note: "We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.",
-        helpTitle: "Where to find Order ID",
-        helpSteps: [
-          "Open the Shopee app ➜ <b>Me</b>.",
-          "Tap <b>Purchases</b> and select the order.",
-          "Scroll to <b>Order ID</b> and tap <b>Copy</b>."
-        ],
-        langButton: "Bahasa Melayu"
-      },
-      ms: {
-        title: "Pengesahan Pesanan",
-        orderLabel: "Masukkan ID Pesanan",
-        verifyBtn: "Sahkan & Teruskan",
-        note: "Kami hanya akan teruskan jika pesanan telah <b>dibayar</b>. Pesanan belum bayar disekat di pelayan.",
-        helpTitle: "Di mana untuk cari ID Pesanan",
-        helpSteps: [
-          "Buka aplikasi Shopee ➜ <b>Saya</b>.",
-          "Tekan <b>Pembelian</b> dan pilih pesanan.",
-          "Tatal ke <b>ID Pesanan</b> dan tekan <b>Salin</b>."
-        ],
-        langButton: "English"
-      }
-    };
+        // Translations
+        var translations = {
+            en: {
+                title: "Order Verification",
+                orderLabel: "Enter Order ID",
+                verifyBtn: "Verify & Continue",
+                note: "We’ll only proceed if the order is <b>paid</b>. Unpaid orders are blocked server-side.",
+                helpTitle: "Where to find Order ID",
+                helpSteps: [
+                    "Open the Shopee app ➜ <b>Me</b>.",
+                    "Tap <b>Purchases</b> and select the order.",
+                    "Scroll to <b>Order ID</b> and tap <b>Copy</b>."
+                ],
+                langButton: "Bahasa Melayu"
+            },
+            ms: {
+                title: "Pengesahan Pesanan",
+                orderLabel: "Masukkan ID Pesanan",
+                verifyBtn: "Sahkan & Teruskan",
+                note: "Kami hanya akan teruskan jika pesanan telah <b>dibayar</b>. Pesanan belum bayar disekat di pelayan.",
+                helpTitle: "Di mana untuk cari ID Pesanan",
+                helpSteps: [
+                    "Buka aplikasi Shopee ➜ <b>Saya</b>.",
+                    "Tekan <b>Pembelian</b> dan pilih pesanan.",
+                    "Tatal ke <b>ID Pesanan</b> dan tekan <b>Salin</b>."
+                ],
+                langButton: "English"
+            }
+        };
 
-    var currentLang = 'en';
-    var langBtn = document.getElementById('lang-switcher');
-    function setLanguage(lang){
-      var t = translations[lang];
-      document.getElementById('title').innerHTML = t.title;
-      document.getElementById('order-label').innerHTML = t.orderLabel;
-      btn.textContent = t.verifyBtn;
-      document.getElementById('note').innerHTML = t.note;
-      document.getElementById('help-title').innerHTML = t.helpTitle;
-      var helpOl = document.getElementById('help-steps');
-      helpOl.innerHTML = "";
-      t.helpSteps.forEach(step=>{
-        var li = document.createElement("li");
-        li.innerHTML = step;
-        helpOl.appendChild(li);
-      });
-      langBtn.textContent = t.langButton;
-      currentLang = lang;
-    }
+        var currentLang = 'en';
+        var langBtn = document.getElementById('lang-switcher');
+        function setLanguage(lang){
+            var t = translations[lang];
+            document.getElementById('title').innerHTML = t.title;
+            document.getElementById('order-label').innerHTML = t.orderLabel;
+            btn.textContent = t.verifyBtn;
+            document.getElementById('note').innerHTML = t.note;
+            document.getElementById('help-title').innerHTML = t.helpTitle;
+            var helpOl = document.getElementById('help-steps');
+            helpOl.innerHTML = "";
+            t.helpSteps.forEach(step=>{
+                var li = document.createElement("li");
+                li.innerHTML = step;
+                helpOl.appendChild(li);
+            });
+            langBtn.textContent = t.langButton;
+            currentLang = lang;
+        }
 
-    langBtn.addEventListener('click', ()=> setLanguage(currentLang==='en' ? 'ms' : 'en'));
+        langBtn.addEventListener('click', ()=> setLanguage(currentLang==='en' ? 'ms' : 'en'));
 
-    // Default language = English
-    setLanguage('en');
+        // Default language = English
+        setLanguage('en');
 
-    function showStatus(msg, type){
-      statusEl.className = "mt-4 px-3 py-3 rounded-lg " + (type==='ok'
-        ? "bg-green-50 text-green-700 border border-green-200"
-        : type==='warn'
-          ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-          : "bg-red-50 text-red-700 border border-red-200");
-      statusEl.innerHTML = msg;
-      statusEl.classList.remove('hidden');
-    }
-    function setDisabled(el, on){ el.disabled=on; el.classList.toggle('opacity-60',on); el.classList.toggle('cursor-not-allowed',on); }
+        function showStatus(msg, type){
+            statusEl.className = "mt-4 px-3 py-3 rounded-lg " + (type==='ok'
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : type==='warn'
+                    ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                    : "bg-red-50 text-red-700 border border-red-200");
+            statusEl.innerHTML = msg;
+            statusEl.classList.remove('hidden');
+        }
+        function setDisabled(el, on){ el.disabled=on; el.classList.toggle('opacity-60',on); el.classList.toggle('cursor-not-allowed',on); }
 
-    async function verifyAndGo(sn){
-      const res = await fetch(backendUrl + "/verify-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopeeId: sn })
-      });
-      const json = await res.json().catch(() => ({}));
+        async function verifyAndGo(sn){
+            const res = await fetch(backendUrl + "/verify-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ shopeeId: sn })
+            });
+            const json = await res.json().catch(() => ({}));
 
-      // NEW: already claimed → redirect to read-only view
-      if (res.ok && json && json.code === 'CLAIMED') {
-        const finalSn = json.order_sn || sn;
-        const viewKey = json.viewKey;
-        showStatus("ℹ️ This order was already claimed. Showing your redemption…", "warn");
-        var url = new URL('otp.html', window.location.href);
-        url.searchParams.set('order_sn', finalSn);
-        if (viewKey) url.searchParams.set('viewKey', viewKey);
-        window.location.href = url.toString();
-        return;
-      }
+            // If already claimed, redirect to the standard OTP page
+            if (res.ok && json && json.code === 'CLAIMED') {
+                const finalSn = json.order_sn || sn;
+                showStatus("ℹ️ This order was already claimed. Showing your redemption…", "warn");
+                var url = new URL('otp.html', window.location.href);
+                url.searchParams.set('order_sn', finalSn);
+                window.location.href = url.toString();
+                return;
+            }
 
-      if (!res.ok || json.success !== true) {
-        showStatus(json.message || "Order is not paid / invalid.", "err");
-        return;
-      }
+            if (!res.ok || json.success !== true) {
+                showStatus(json.message || "Order is not paid / invalid.", "err");
+                return;
+            }
 
-      var finalSn = json.order_sn || sn;
-      showStatus("✅ Order verified. Redirecting…", "ok");
-      var url = new URL('otp.html', window.location.href);
-      url.searchParams.set('order_sn', finalSn);
-      window.location.href = url.toString();
-    }
+            var finalSn = json.order_sn || sn;
+            showStatus("✅ Order verified. Redirecting…", "ok");
+            var url = new URL('otp.html', window.location.href);
+            url.searchParams.set('order_sn', finalSn);
+            window.location.href = url.toString();
+        }
 
-    function onClick(){
-      var sn = (input.value || "").trim();
-      if(!sn){ showStatus("Please enter a valid Order ID.", "err"); return; }
-      setDisabled(btn, true);
-      showStatus("Verifying order…", "warn");
-      verifyAndGo(sn).catch(function(){
-        showStatus("Could not verify the order (network/server error).", "err");
-      }).finally(function(){ setDisabled(btn, false); });
-    }
+        function onClick(){
+            var sn = (input.value || "").trim();
+            if(!sn){ showStatus("Please enter a valid Order ID.", "err"); return; }
+            setDisabled(btn, true);
+            showStatus("Verifying order…", "warn");
+            verifyAndGo(sn).catch(function(){
+                showStatus("Could not verify the order (network/server error).", "err");
+            }).finally(function(){ setDisabled(btn, false); });
+        }
 
-    btn.addEventListener('click', onClick);
-    input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ onClick(); } });
-  })();
-  </script>
+        btn.addEventListener('click', onClick);
+        input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ onClick(); } });
+    })();
+    </script>
 </body>
 </html>
