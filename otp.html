@@ -436,6 +436,7 @@
           console.error("Fetch Phone Error:", error);
           phoneBox.textContent = `❌ ${error.message}`;
           otpBox.textContent = '...';
+          resetItemUI(index) ;
       }
   }
     
@@ -558,10 +559,17 @@
               document.getElementById(`otp-box-${index}`).textContent = stateEntry.otp;
           }
       } else if (stateEntry.status === 'pending') {
-        const pollingInterval = setInterval(() => pollForOtp(orderSn, index, pollingInterval), 5000);
-      }
-  }
-
+        if (stateEntry.phoneNumber) {
+            // A number was already fetched. Show loader and resume polling for OTP.
+            showBouncingLoader(document.getElementById(`otp-box-${index}`));
+            const pollingInterval = setInterval(() => pollForOtp(orderSn, index, pollingInterval), 5000);
+        } else {
+            // State is pending but no number exists. This means the user reloaded
+            // during the initial request. Retry fetching the number.
+            requestAndFetchPhoneNumber(orderSn, itemData, index);
+        }
+    }
+}
   async function renderReadOnlyView(viewKey) {
     document.getElementById('lang-switcher').classList.add('hidden');
     const statusText = document.getElementById('status-text');
