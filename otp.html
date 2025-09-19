@@ -325,12 +325,18 @@
         if (!btn) return;
         
         const count = stateEntry.requestOtpCount || 0;
-        if (count >= REQUEST_OTP_MAX_ATTEMPTS) {
-            btn.disabled = true;
-            btn.textContent = t('otp_requested');
-        } else {
+        
+        // Button is only enabled if the first OTP has been received AND attempts are not used up.
+        if (stateEntry.otpReceived && count < REQUEST_OTP_MAX_ATTEMPTS) {
             btn.disabled = false;
             btn.textContent = t('request_new_otp');
+        } else {
+            btn.disabled = true;
+            if (count >= REQUEST_OTP_MAX_ATTEMPTS) {
+                btn.textContent = t('otp_requested');
+            } else {
+                btn.textContent = t('request_new_otp'); // Keep default text but disabled
+            }
         }
     }
 
