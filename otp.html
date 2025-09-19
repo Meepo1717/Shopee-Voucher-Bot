@@ -37,7 +37,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 relative flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
     <div class="absolute top-4 right-4">
         <button id="lang-switcher" class="px-4 py-2 bg-white text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition-colors duration-200 text-sm">
@@ -79,7 +79,7 @@
                             <li>⚠️ Skip referral code.</li>
                             <li>🎟️ Go to My Account → My Vouchers → Active.</li>
                             <li>🔑 Enter code: BUY1FREE1 🎉</li>
-                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2025).</li>
+                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2010).</li>
                             <li>👆 Enable Biometrics (fingerprint/face) to stay logged in.</li>
                         </ul>
                     </div>
@@ -89,7 +89,7 @@
                             <li>📱 Sign up with the generated phone number.</li>
                             <li>✅ Verify via SMS.</li>
                             <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2025).</li>
+                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2010).</li>
                             <li>🎟️ Go to Promotions to claim vouchers.</li>
                         </ul>
                     </div>
@@ -99,7 +99,7 @@
                             <li>📱 Sign up with the generated phone number.</li>
                             <li>✅ Verify via SMS.</li>
                             <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2025).</li>
+                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2010).</li>
                         </ul>
                     </div>
                 </div>
@@ -120,7 +120,7 @@
             status_fetching: "Fetching your order details...",
             status_ready: "Your products are ready. Please redeem them below.",
             status_failed_fetch: "Failed to fetch order details. Please check the Order ID and try again.",
-            order_sn_label: "Order SN",
+            order_sn_label: "Order ID",
             redeem_button: "Redeem",
             redeeming_button: "Redeeming...",
             phone_label: "Generated Phone Number",
@@ -145,7 +145,7 @@
             status_fetching: "Memuatkan butiran pesanan anda...",
             status_ready: "Produk anda sudah sedia. Sila tebus di bawah.",
             status_failed_fetch: "Gagal memuatkan butiran pesanan. Sila semak ID Pesanan dan cuba lagi.",
-            order_sn_label: "SN Pesanan",
+            order_sn_label: "ID Pesanan",
             redeem_button: "Tebus",
             redeeming_button: "Menebus...",
             phone_label: "Nombor Telefon Dijana",
@@ -424,7 +424,6 @@
             stateEntry.phoneNumber = data.phoneNumber;
             stateEntry.provider = data.provider;
             stateEntry.providerOrderId = data.providerOrderId;
-            stateEntry.operator = data.operator; // Save operator from backend
             stateEntry.otpReceived = false;
             stateEntry.requestOtpCount = 0;
             saveOrderState(orderSn, orderState);
@@ -668,3 +667,5 @@
 </script>
 </body>
 </html>
+
+patch notes for this new version
