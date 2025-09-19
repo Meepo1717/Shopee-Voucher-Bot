@@ -57,6 +57,54 @@
         </div>
 
         <div id="products-container" class="space-y-4"></div>
+
+        <div id="general-instructions" class="hidden mt-6 pt-6 border-t">
+            <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
+                <li data-translate="instruction_1">Always verify using SMS.</li>
+                <li data-translate="instruction_2">Stay on this page while the phone number and OTP are being generated.</li>
+                <li data-translate="instruction_3">If the OTP is taking too long, please close the app, turn your phone's Airplane Mode on and off, then try again.</li>
+                <li data-translate="instruction_4">Please be patient as this process can take a few minutes.</li>
+            </ul>
+
+            <hr class="my-3 border-gray-200">
+            <div class="text-xs text-gray-600">
+                <p class="font-medium text-gray-800 mb-2">Instructions to redeem vouchers:</p>
+                <div class="space-y-3">
+                    <div>
+                        <h4 class="font-semibold text-gray-900">☕ How to Claim ZUS Coffee Voucher</h4>
+                        <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
+                            <li>📱 Register in the ZUS app using the generated phone number.</li>
+                            <li>✅ Verify via SMS.</li>
+                            <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
+                            <li>⚠️ Skip referral code.</li>
+                            <li>🎟️ Go to My Account → My Vouchers → Active.</li>
+                            <li>🔑 Enter code: BUY1FREE1 🎉</li>
+                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2025).</li>
+                            <li>👆 Enable Biometrics (fingerprint/face) to stay logged in.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-900">🍗 How to Claim KFC Voucher</h4>
+                        <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
+                            <li>📱 Sign up with the generated phone number.</li>
+                            <li>✅ Verify via SMS.</li>
+                            <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
+                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2025).</li>
+                            <li>🎟️ Go to Promotions to claim vouchers.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-900">🍔 How to Claim MarryBrown Voucher</h4>
+                        <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
+                            <li>📱 Sign up with the generated phone number.</li>
+                            <li>✅ Verify via SMS.</li>
+                            <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
+                            <li class="instruction-date">🎂 For Birthday, use today’s date (e.g. if today = 19 Sep 2025, put 19 Sep 2025).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
 <script>
@@ -243,7 +291,6 @@
     }
 
     function injectRedemptionUI(container, index) {
-        const todayDate = getFormattedDate();
         container.innerHTML = `
             <div class="flex justify-end items-center mb-2"><div id="timer-${index}" class="text-sm font-semibold text-gray-700"></div></div>
             
@@ -268,54 +315,6 @@
                 <button id="get-new-number-btn-${index}" class="w-full sm:w-1/2 px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition text-sm"></button>
                 <button id="request-otp-btn-${index}" class="w-full sm:w-1/2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 transition text-sm" disabled data-translate="request_new_otp">${t('request_new_otp')}</button>
             </div>
-
-            <div class="mt-4 pt-4 border-t">
-                <ul class="space-y-2 text-xs text-gray-500 list-decimal list-inside">
-                    <li data-translate="instruction_1">${t('instruction_1')}</li>
-                    <li data-translate="instruction_2">${t('instruction_2')}</li>
-                    <li data-translate="instruction_3">${t('instruction_3')}</li>
-                    <li data-translate="instruction_4">${t('instruction_4')}</li>
-                </ul>
-
-                <hr class="my-3 border-gray-200">
-                <div class="text-xs text-gray-600">
-                    <p class="font-medium text-gray-800 mb-2">Instructions to redeem vouchers:</p>
-                    <div class="space-y-3">
-                        <div>
-                            <h4 class="font-semibold text-gray-900">☕ How to Claim ZUS Coffee Voucher</h4>
-                            <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
-                                <li>📱 Register in the ZUS app using the generated phone number.</li>
-                                <li>✅ Verify via SMS.</li>
-                                <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                                <li>⚠️ Skip referral code.</li>
-                                <li>🎟️ Go to My Account → My Vouchers → Active.</li>
-                                <li>🔑 Enter code: BUY1FREE1 🎉</li>
-                                <li>🎂 For Birthday, use today’s date (e.g. if today = ${todayDate}, put ${todayDate}).</li>
-                                <li>👆 Enable Biometrics (fingerprint/face) to stay logged in.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 class="font-semibold text-gray-900">🍗 How to Claim KFC Voucher</h4>
-                            <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
-                                <li>📱 Sign up with the generated phone number.</li>
-                                <li>✅ Verify via SMS.</li>
-                                <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                                <li>🎂 For Birthday, use today’s date (e.g. if today = ${todayDate}, put ${todayDate}).</li>
-                                <li>🎟️ Go to Promotions to claim vouchers.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 class="font-semibold text-gray-900">🍔 How to Claim MarryBrown Voucher</h4>
-                            <ul class="list-disc list-inside mt-1 space-y-1 pl-2">
-                                <li>📱 Sign up with the generated phone number.</li>
-                                <li>✅ Verify via SMS.</li>
-                                <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                                <li>🎂 For Birthday, use today’s date (e.g. if today = ${todayDate}, put ${todayDate}).</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
         `;
         attachCopyHandlers(index);
     }
@@ -326,7 +325,6 @@
         
         const count = stateEntry.requestOtpCount || 0;
         
-        // Button is only enabled if the first OTP has been received AND attempts are not used up.
         if (stateEntry.otpReceived && count < REQUEST_OTP_MAX_ATTEMPTS) {
             btn.disabled = false;
             btn.textContent = t('request_new_otp');
@@ -335,7 +333,7 @@
             if (count >= REQUEST_OTP_MAX_ATTEMPTS) {
                 btn.textContent = t('otp_requested');
             } else {
-                btn.textContent = t('request_new_otp'); // Keep default text but disabled
+                btn.textContent = t('request_new_otp');
             }
         }
     }
@@ -499,6 +497,7 @@
     }
 
     function startRedemptionProcess(orderSn, item, index, redeemBtn) {
+        document.getElementById('general-instructions').classList.remove('hidden');
         const orderState = loadOrderState(orderSn);
         const stateEntry = ensureEntry(orderState, index);
         
@@ -571,6 +570,10 @@
     async function boot() {
         document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
         setLanguage('en');
+        const todayDate = getFormattedDate();
+        document.querySelectorAll('.instruction-date').forEach(el => {
+            el.innerHTML = el.innerHTML.replace(/19 Sep 2025/g, todayDate);
+        });
 
         const statusText = document.getElementById('status-text');
         const orderSn = getOrderSn();
@@ -620,6 +623,10 @@
                     localState.items[index] = mergedItem;
                 });
                 saveOrderState(orderSn, localState);
+                
+                if (localState.items.some(item => item.status !== 'idle')) {
+                    document.getElementById('general-instructions').classList.remove('hidden');
+                }
 
                 localState.items.forEach((item, index) => {
                     const productCard = document.createElement('div');
@@ -660,3 +667,5 @@
 </script>
 </body>
 </html>
+
+patch notes for this new version
