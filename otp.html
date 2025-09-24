@@ -69,6 +69,7 @@
 
             <hr class="my-3 border-gray-200">
             <div class="text-xs text-gray-600">
+                <h3 class="text-center font-bold text-gray-800 text-sm mb-3">Please read instructions below. 🔻</h3>
                 <p class="font-medium text-gray-800 mb-2">Instructions to redeem vouchers:</p>
                 <div class="space-y-3">
                     <div>
@@ -141,9 +142,7 @@
             instruction_2: "Please stay on this while the phone number and OTP are being generated. OTP will only last 30 seconds when generated, so you have to be fast.",
             instruction_3: "If the OTP is taking too long, please close the app, turn your phone's Airplane Mode on and off, then try again.",
             instruction_4: "Please be patient as this process may take a few minutes.",
-            // MODIFICATION START: Added missing translation key
             instruction_5: "Chat with Seller if you are facing any issues.",
-            // MODIFICATION END
         },
         ms: {
             title: "Penebusan Baucar",
@@ -584,7 +583,10 @@
         const todayDate = getFormattedDate();
         document.querySelectorAll('ul li').forEach(li => {
             if (li.textContent.includes('today’s date')) {
-                li.textContent = li.textContent.replace(/(\d{1,2}(st|nd|rd|th)? [A-Za-z]{3} \d{4})/g, todayDate);
+                const year = new Date().getFullYear();
+                const pastYear = year - 15;
+                const newDateText = li.textContent.replace(/\d{4}\)/, `${pastYear})`);
+                li.textContent = newDateText.replace(/(\d{1,2}(st|nd|rd|th)? [A-Za-z]{3} \d{4})/g, todayDate);
             }
         });
 
