@@ -80,7 +80,7 @@
                             <li>⚠️ Skip referral code.</li>
                             <li>🎟️ Go to My Account → My Vouchers → Active.</li>
                             <li>🔑 Enter code: BUY1FREE1 🎉</li>
-                            <li>🎂 For Birthday, use today’s date (e.g. if today = 1st Jan 2025, put 1st Jan 2010).</li>
+                            <li>🎂 For Birthday, use today’s date (e.g. if today = 24 Sep 2025, put 24 Sep 2010).</li>
                             <li>👆 Enable Biometrics (fingerprint/face) to stay logged in.</li>
                         </ul>
                     </div>
@@ -90,7 +90,7 @@
                             <li>📱 Sign up with the generated phone number.</li>
                             <li>✅ Verify via SMS.</li>
                             <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                            <li>🎂 For Birthday, use today’s date (e.g. if today = 1st Jan 2025, put 1st Jan 2010).</li>
+                            <li>🎂 For Birthday, use today’s date (e.g. if today = 24 Sep 2025, put 24 Sep 2010).</li>
                             <li>🎟️ Go to Promotions to claim vouchers.</li>
                         </ul>
                     </div>
@@ -100,7 +100,7 @@
                             <li>📱 Sign up with the generated phone number.</li>
                             <li>✅ Verify via SMS.</li>
                             <li>📧 Enter a dummy email (e.g. test123@gmail.com).</li>
-                            <li>🎂 For Birthday, use today’s date (e.g. if today = 1st Jan 2025, put 1st Jan 2010).</li>
+                            <li>🎂 For Birthday, use today’s date (e.g. if today = 24 Sep 2025, put 24 Sep 2010).</li>
                         </ul>
                     </div>
                 </div>
@@ -125,9 +125,7 @@
             redeem_button: "Redeem",
             redeeming_button: "Redeeming...",
             phone_label: "Generated Phone Number",
-            // MODIFICATION START: Add new translation key for email label
             email_label: "Generated Email Address",
-            // MODIFICATION END
             otp_label: "Verification Code (OTP)",
             lang_button: "Bahasa Melayu",
             copy: "Copy",
@@ -139,10 +137,13 @@
             requesting_otp: "Requesting...",
             otp_requested: "Requested",
             voucher_redeemed_successfully: "Voucher Successfully Redeemed!",
-            instruction_1: "Always verify using SMS.",
-            instruction_2: "Stay on this page while the phone number and OTP are being generated.",
+            instruction_1: "Use the generated phone number to REGISTER/SIGN-UP a new account in the app. (eg : KFC, ZUS, TeaLive, Gigi, Kenangan app)",
+            instruction_2: "Please stay on this while the phone number and OTP are being generated. OTP will only last 30 seconds when generated, so you have to be fast.",
             instruction_3: "If the OTP is taking too long, please close the app, turn your phone's Airplane Mode on and off, then try again.",
-            instruction_4: "Please be patient as this process can take a few minutes.",
+            instruction_4: "Please be patient as this process may take a few minutes.",
+            // MODIFICATION START: Added missing translation key
+            instruction_5: "Chat with Seller if you are facing any issues.",
+            // MODIFICATION END
         },
         ms: {
             title: "Penebusan Baucar",
@@ -153,9 +154,7 @@
             redeem_button: "Tebus",
             redeeming_button: "Menebus...",
             phone_label: "Nombor Telefon Dijana",
-            // MODIFICATION START: Add new translation key for email label
             email_label: "Alamat E-mel Dijana",
-            // MODIFICATION END
             otp_label: "Kod Pengesahan (OTP)",
             lang_button: "English",
             copy: "Salin",
@@ -167,7 +166,7 @@
             requesting_otp: "Meminta...",
             otp_requested: "Diminta",
             voucher_redeemed_successfully: "Baucar Berjaya Ditebus!",
-            instruction_1: "Gunakan nombor telefon yang dijana untuk MENDAFTAR akaun baru dalam aplikasi. (cth: aplikasi KFC, ZUS, TeaLive, Gigi, Kenangan).",
+            instruction_1: "Gunakan nombor telefon yang dijana untuk MENDAFTAR akaun baru dalam aplikasi. (cth: aplikasi KFC, ZUS, TeaLive, Gigi, Kenangan)",
             instruction_2: "Sila kekal di halaman ini semasa nombor telefon dan OTP dijana. OTP hanya akan bertahan selama 30 saat apabila dijana, jadi anda perlu cepat.",
             instruction_3: "Jika OTP mengambil masa terlalu lama, sila tutup aplikasi, hidupkan dan matikan Mod Pesawat telefon anda, kemudian cuba lagi.",
             instruction_4: "Sila bersabar kerana proses ini mungkin mengambil masa beberapa minit.",
@@ -298,7 +297,6 @@
         activeTimers[timerKey] = setInterval(update, 1000);
     }
 
-    // MODIFICATION START: Update function to accept 'item' data and make the UI dynamic
     function injectRedemptionUI(container, index, item) {
         const isCoffeeBean = item.name.toLowerCase().includes('coffee bean');
         const labelKey = isCoffeeBean ? 'email_label' : 'phone_label';
@@ -330,7 +328,6 @@
         `;
         attachCopyHandlers(index);
     }
-    // MODIFICATION END
     
     function updateRequestOtpButton(index, stateEntry) {
         const btn = document.getElementById(`request-otp-btn-${index}`);
@@ -517,9 +514,7 @@
         redeemBtn.classList.add('hidden');
         const uiContainer = document.getElementById(`redemption-ui-${index}`);
         uiContainer.classList.remove('hidden');
-        // MODIFICATION START: Pass 'item' data into the function
         injectRedemptionUI(uiContainer, index, item);
-        // MODIFICATION END
 
         stateEntry.status = 'pending';
         stateEntry.countdownEnd = Date.now() + MAIN_TIMER_DURATION;
@@ -548,9 +543,7 @@
         const uiContainer = document.getElementById(`redemption-ui-${index}`);
         if (uiContainer) uiContainer.classList.remove('hidden');
         
-        // MODIFICATION START: Pass 'stateEntry' (which is the item) into the function
         injectRedemptionUI(uiContainer, index, stateEntry);
-        // MODIFICATION END
         
         if (stateEntry.countdownEnd) {
             startItemTimer(index, stateEntry.countdownEnd);
@@ -589,9 +582,12 @@
         document.getElementById('lang-switcher').addEventListener('click', () => setLanguage(currentLang === 'en' ? 'ms' : 'en'));
         setLanguage('en');
         const todayDate = getFormattedDate();
-        document.querySelectorAll('.instruction-date').forEach(el => {
-            el.innerHTML = el.innerHTML.replace(/20 Sep 2025/g, todayDate);
+        document.querySelectorAll('ul li').forEach(li => {
+            if (li.textContent.includes('today’s date')) {
+                li.textContent = li.textContent.replace(/(\d{1,2}(st|nd|rd|th)? [A-Za-z]{3} \d{4})/g, todayDate);
+            }
         });
+
 
         const statusText = document.getElementById('status-text');
         const orderSn = getOrderSn();
